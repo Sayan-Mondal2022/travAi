@@ -1,3 +1,8 @@
+# Python
 __pycache__
-.env
+
+# Virtual Environments: (Containing all the Dependencies)
 .venv
+
+# Will contain all the API Keys.
+.env
