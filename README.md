@@ -7,8 +7,8 @@ AI Trip Planner is an intelligent tool that creates personalized travel plans an
 
 1. **Clone the repository**
 ```bash
-git clone https://github.com/your-username/your-repo.git
-cd your-repo
+git clone https://github.com/your-username/travAi.git
+cd travAi
 ```
 
 2. **Install dependencies for Frontend**
