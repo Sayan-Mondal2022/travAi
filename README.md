@@ -34,3 +34,13 @@ source .venv/bin/activate # Linux/Mac
 
 pip install -r requirements.txt
 ```
+
+---
+
+## Tech Stack using for the Current Project:
+
+```bash
+clerk -> For authentication
+next.js -> For handling the Frontend 
+django -> For handling the Backend
+```
