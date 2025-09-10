@@ -9,9 +9,15 @@ https://docs.djangoproject.com/en/5.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
-
+import os
 from pathlib import Path
+from pymongo import MongoClient
+from dotenv import load_dotenv
 
+# Load environment variables from .env file
+load_dotenv()
+
+PASSWORD=os.getenv("SQL_PASSWORD")
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -84,13 +90,23 @@ WSGI_APPLICATION = "projectBackend.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+# settings.py
 DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+    'default': {
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'USER_DB',       # Create this DB in MySQL
+        'USER': 'root',
+        'PASSWORD': PASSWORD,
+        'HOST': '127.0.0.1',          # or IP address of DB server
+        'PORT': '3306',
+        'OPTIONS': {
+            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'"
+        }
     }
 }
 
+MONGO_CLIENT = MongoClient("mongodb://localhost:27017/")
+MONGO_DB = MONGO_CLIENT["travAi_db"]   # your database
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
