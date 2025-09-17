@@ -1,10 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-/* @tailwind base; */
-/* @tailwind components; */
-/* @tailwind utilities; */
-
 /* Custom animations */
 @keyframes float {
   0%, 100% {
