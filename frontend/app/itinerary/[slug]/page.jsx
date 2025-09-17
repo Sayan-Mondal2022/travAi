@@ -1,12 +1,14 @@
-// pages/itinerary/[slug].jsx
-import { useRouter } from 'next/router';
+// app/itinerary/[slug]/page.jsx
+"use client";
+
+import { useParams } from 'next/navigation';
 import { trip_places } from '@/data/places';
 import { ArrowLeft, MapPin, Calendar, DollarSign, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
 
 export default function ItineraryPage() {
-  const router = useRouter();
-  const { slug } = router.query;
+  const params = useParams();
+  const slug = params.slug;
 
   // Find the place that matches the slug
   const place = trip_places.find(p => 
@@ -18,7 +20,7 @@ export default function ItineraryPage() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-4">Package Not Found</h1>
-          <Link href="/places" className="text-blue-600 hover:underline">
+          <Link href="/" className="text-blue-600 hover:underline">
             ← Back to Packages
           </Link>
         </div>
@@ -31,7 +33,7 @@ export default function ItineraryPage() {
       {/* Header */}
       <div className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-6 py-4">
-          <Link href="/places" className="inline-flex items-center text-blue-600 hover:text-blue-800">
+          <Link href="/" className="inline-flex items-center text-blue-600 hover:text-blue-800">
             <ArrowLeft size={20} className="mr-2" />
             Back to Packages
           </Link>
@@ -94,13 +96,28 @@ export default function ItineraryPage() {
         </div>
 
         {/* What's Included */}
-        <div className="bg-white rounded-lg shadow p-8">
+        <div className="bg-white rounded-lg shadow p-8 mb-8">
           <h2 className="text-2xl font-bold mb-6">What's Included</h2>
           <div className="grid md:grid-cols-2 gap-4">
             {place.includes.map((item, index) => (
               <div key={index} className="flex items-center">
                 <CheckCircle className="text-green-500 mr-3" size={20} />
                 <span className="text-gray-700">{item}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Highlights */}
+        <div className="bg-white rounded-lg shadow p-8 mb-8">
+          <h2 className="text-2xl font-bold mb-6">Tour Highlights</h2>
+          <div className="grid md:grid-cols-2 gap-4">
+            {place.highlights?.map((highlight, index) => (
+              <div key={index} className="flex items-center">
+                <div className="bg-blue-100 text-blue-800 rounded-full w-8 h-8 flex items-center justify-center font-bold mr-4 flex-shrink-0">
+                  {index + 1}
+                </div>
+                <span className="text-gray-700 font-medium">{highlight}</span>
               </div>
             ))}
           </div>
