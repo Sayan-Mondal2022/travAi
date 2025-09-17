@@ -3,60 +3,132 @@ AI Trip Planner is an intelligent tool that creates personalized travel plans an
 
 ---
 
-## For Contribution:
+## 🤝 For Contribution
 
+We love your input! We want to make contributing to TravAi as easy and transparent as possible.
+
+### 🚀 Getting Started
+
+#### First Time Setup
 ```bash
+# Clone the repository
+git clone https://github.com/Sayan-Mondal2022/travAi.git
+cd travAi
 
-git pull
-
-# Install the latest dependcies.
-
-# In one Terminal (Seperate from the Backend/Server one)
+# Set up frontend (Terminal 1)
 cd frontend
 npm install
 
-# In another Terminal
+# Set up backend (Terminal 2)
 cd backend
 pip install -r requirements.txt
 
-# Once the Changes or the Code is modified
+```
 
-git add .
-git commit -m "Give a Relevent message"
-git push
+### For Existing Contributors
 
+```bash
+# Always pull latest changes before starting
+git pull origin main
+
+# Install any new dependencies
+cd frontend && npm install
+cd ../backend && pip install -r requirements.txt
 ```
 
 ---
 
-## Installation
+## 🛠️ Installation & Setup
+
+### Prerequisites
+
+- Node.js (v18 or higher)
+- Python (v3.8 or higher)
+- Git
+- npm or yarn
+- pip (Python package manager)
 
 1. **Clone the repository**
+
 ```bash
 git clone https://github.com/your-username/travAi.git
 cd travAi
 ```
 
 2. **Install dependencies for Frontend**
+
 ```bash
-cd frontend    # Navigate to the frontend folder
+# Navigate to frontend directory
+cd frontend
 
-npm install    # Installs all packages from package.json
+# Install dependencies
+npm install
 
-npm run dev   # Starts Next.js/React/Vue in dev mode
+# Start development server
+npm run dev
 ```
+
+- 📍 Frontend will be available at: http://localhost:3000
 
 3. **Install dependencies for Backend**
+
 ```bash
-cd backend  # Navigate to the backend folder
+# Navigate to backend directory
+cd backend
 
-python -m venv .venv       # Windows/Linux/Mac (if 'py' doesn't work)
-# OR
-py -m venv .venv          # Windows (alternative)
+# Create virtual environment
+python -m venv venv
+# or for Python 3 specific
+python3 -m venv venv
 
-# Activate the environment
-source .venv/bin/activate # Linux/Mac
-.\.venv\Scripts\activate  # Windows (PowerShell)
+# Activate virtual environment
+# On Windows (PowerShell):
+.\venv\Scripts\activate
+# On Windows (CMD):
+venv\Scripts\activate.bat
+# On macOS/Linux:
+source venv/bin/activate
 
+# Install Python dependencies
 pip install -r requirements.txt
+
+# Start backend server
+# If using Django:
+python manage.py runserver
 ```
+- 📍 Backend will be available at: http://localhost:8000 or http://127.0.0.1:8000/
+
+4. **Environment Variables**
+
+- Frontend (frontend/.env.local)
+
+```bash
+NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXT_PUBLIC_APP_NAME=TravAi
+```
+
+- Backend (backend/.env)
+
+```bash
+DATABASE_URL=your_database_url
+SECRET_KEY=your_secret_key
+DEBUG=True
+```
+
+5. **Database Setup (If Applicable)**
+
+```bash
+# Navigate to backend
+cd backend
+
+# Activate virtual environment
+source venv/bin/activate  # macOS/Linux
+# or
+.\venv\Scripts\activate   # Windows
+
+# If using Django
+python manage.py migrate
+python manage.py createsuperuser
+```
+
+---
