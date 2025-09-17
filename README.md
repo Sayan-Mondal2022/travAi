@@ -3,6 +3,32 @@ AI Trip Planner is an intelligent tool that creates personalized travel plans an
 
 ---
 
+## For Contribution:
+
+```bash
+
+git pull
+
+# Install the latest dependcies.
+
+# In one Terminal (Seperate from the Backend/Server one)
+cd frontend
+npm install
+
+# In another Terminal
+cd backend
+pip install -r requirements.txt
+
+# Once the Changes or the Code is modified
+
+git add .
+git commit -m "Give a Relevent message"
+git push
+
+```
+
+---
+
 ## Installation
 
 1. **Clone the repository**
