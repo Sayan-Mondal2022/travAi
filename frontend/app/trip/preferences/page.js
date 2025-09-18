@@ -35,6 +35,7 @@ export default function PreferencesStep() {
     budget: 2000
   });
 
+  // This hook loads data when the component first mounts
   useEffect(() => {
     const savedData = localStorage.getItem('tripData');
     if (savedData) {
@@ -42,26 +43,35 @@ export default function PreferencesStep() {
     }
   }, []);
 
-// Then update your handleSubmit function:
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  
-  // Get all data from localStorage and combine with current form data
-  const savedData = JSON.parse(localStorage.getItem('tripData') || '{}');
-  const allData = { ...savedData, ...formData };
-  
-  try {
-    // Use the apiPost function from your api.js
-    const result = await apiPost('/api/trip/add-trip/', allData);
+  // ✅ ADD THIS NEW HOOK
+  // This hook saves the current page's data to localStorage whenever it changes
+  useEffect(() => {
+    const savedData = JSON.parse(localStorage.getItem('tripData') || '{}');
+    const updatedTripData = { ...savedData, ...formData };
+    localStorage.setItem('tripData', JSON.stringify(updatedTripData));
+  }, [formData]);
+
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
     
-    // Store the trip data for use in itinerary
-    localStorage.setItem('currentTrip', JSON.stringify(result.data));
-    router.push(`/trip/itinerary`);
-  } catch (error) {
-    console.error('Error:', error);
-    alert('Failed to create trip. Please try again.');
-  }
-};
+    // Get all data from localStorage and combine with current form data
+    const savedData = JSON.parse(localStorage.getItem('tripData') || '{}');
+    const allData = { ...savedData, ...formData };
+    
+    console.log('Data being sent to the backend:', allData);
+    try {
+      // Use the apiPost function from your api.js
+      const result = await apiPost('/api/trip/add-trip/', allData);
+      
+      // Store the trip data for use in itinerary
+      localStorage.setItem('currentTrip', JSON.stringify(result.data));
+      router.push(`/trip/itinerary`);
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Failed to create trip. Please try again.');
+    }
+  };
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -204,7 +214,7 @@ const handleSubmit = async (e) => {
             />
             <div className="text-center">
               <span className="text-3xl font-bold text-blue-600">
-                ${formData.budget.toLocaleString()}
+                ${Number(formData.budget).toLocaleString()}
               </span>
               <div className="flex justify-between text-xs text-blue-500 mt-2">
                 <span>$500</span>
