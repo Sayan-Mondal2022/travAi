@@ -64,12 +64,19 @@ html {
 
 :root {
   --bg: #f9fafb;
-  --text: #111827;
-  --text-secondary: #6b7280;
-  --primary: #f97316;
-  --primary-light: #ffedd5;
-  --primary-dark: #c2410c;
-  --secondary: #2563eb;
+  --text: #231942; /* Russian Violet for primary text */
+  --text-secondary: #5e548e; /* Ultra Violet for secondary text */
+  --primary: #9f86c0; /* African Violet for primary actions */
+  --primary-light: #e0b1cb; /* Pink Lavender for light backgrounds */
+  --primary-dark: #5e548e; /* Ultra Violet for dark variants */
+  --secondary: #be95c4; /* Lilac for secondary actions */
+  
+  /* Additional color variables from the palette */
+  --russian-violet: #231942;
+  --ultra-violet: #5e548e;
+  --african-violet: #9f86c0;
+  --lilac: #be95c4;
+  --pink-lavender: #e0b1cb;
 }
 
 @layer base {

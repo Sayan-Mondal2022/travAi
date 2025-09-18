@@ -184,17 +184,20 @@ def filter_places(places, start_time, end_time, min_rating):
     return filtered
 
 
-
 @tour_router.get("/places/{destination}")
-def tourist_places(request, destination: str, start_time: str = "00:00", end_time: str = "23:59", min_rating: float = 0):
+def tourist_places(request, destination: str):
     """
-    Get all types of places with detailed information and filter them based on time and rating.
-    Query parameters:
-      - start_time: 'HH:MM'
-      - end_time: 'HH:MM'
-      - min_rating: float
+    Get all types of places with caching.
     """
     try:
+        # Step 1: Check cache
+        cached_data = settings.MONGO_DB.cached_places.find_one({"destination": destination})
+        if cached_data:
+            # Convert ObjectId to string
+            cached_data["_id"] = str(cached_data["_id"])
+            return {"source": "cache", **cached_data}
+
+        # Step 2: Fetch from Google API
         lat, lng, formatted_destination = get_coordinates(destination)
         if lat is None or lng is None:
             return {"error": formatted_destination, "status": 404}
@@ -203,19 +206,20 @@ def tourist_places(request, destination: str, start_time: str = "00:00", end_tim
         lodging_places = get_places_by_type("lodging", lat, lng)
         restaurant_places = get_places_by_type("restaurant", lat, lng)
 
-        # These were the Debugging statements.
-        # print("Debugging....")
-        # print(f"Tourist Places: {tourist_places}")
-        # print(f"Lodging Places: {lodging_places}")
-        # print(f"Restaurant Places: {restaurant_places}")
-
-        return {
+        response_data = {
             "destination": formatted_destination,
             "coordinates": {"lat": lat, "lng": lng},
             "tourist_attractions": tourist_places,
             "lodging": lodging_places,
-            "restaurants": restaurant_places
+            "restaurants": restaurant_places,
+            "last_updated": datetime.now()
         }
+
+        # Step 3: Save to cache
+        result = settings.MONGO_DB.cached_places.insert_one(response_data)
+        response_data["_id"] = str(result.inserted_id)
+
+        return {"source": "api", **response_data}
 
     except Exception as e:
         return {"error": f"Internal server error: {str(e)}", "status": 500}
