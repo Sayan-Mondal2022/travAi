@@ -79,11 +79,11 @@ export default function Footer(){
             <div className="space-y-4">
               <div className="flex items-center space-x-3">
                 <MapPin size={18} className="text-blue-400 flex-shrink-0" />
-                <span className="text-gray-300">123 Travel Street, Tourism City</span>
+                <span className="text-gray-300">Bengaluru, Karnataka, India</span>
               </div>
               <div className="flex items-center space-x-3">
                 <Phone size={18} className="text-blue-400 flex-shrink-0" />
-                <span className="text-gray-300">+1 (555) 123-4567</span>
+                <span className="text-gray-300">+91 6366660896</span>
               </div>
               <div className="flex items-center space-x-3">
                 <Mail size={18} className="text-blue-400 flex-shrink-0" />
