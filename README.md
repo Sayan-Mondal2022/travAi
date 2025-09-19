@@ -110,9 +110,8 @@ NEXT_PUBLIC_APP_NAME=TravAi
 - Backend (backend/.env)
 
 ```bash
-DATABASE_URL=your_database_url
-SECRET_KEY=your_secret_key
-DEBUG=True
+GOOGLE_API_KEY=****
+SQL_PASSWORD=****
 ```
 
 5. **Database Setup (If Applicable)**
