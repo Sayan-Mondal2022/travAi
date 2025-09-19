@@ -5,6 +5,8 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # API Configuration
+
+# Change the Configs as well.
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 GOOGLE_MAPS_API_KEY = os.getenv('GOOGLE_MAPS_API_KEY')
 WEATHER_API_KEY = os.getenv('WEATHER_API_KEY')
@@ -46,6 +48,8 @@ EXTERNAL_APIS = {
         'timeout': 10,
         'retry_count': 3
     },
+
+    # USE GOOGLE_WEATHER_API for this.
     'weather': {
         'base_url': 'https://api.openweathermap.org/data/2.5',
         'timeout': 10,
