@@ -12,7 +12,7 @@ export default function ShowPlaces() {
   useEffect(() => {
     const interval = setInterval(() => {
       setStartIndex((prev) => (prev + 3) % trip_places.length);
-    }, 30000);
+    }, 10000);
 
     return () => clearInterval(interval);
   }, [trip_places.length]);
