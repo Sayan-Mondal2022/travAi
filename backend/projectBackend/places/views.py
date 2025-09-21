@@ -195,6 +195,7 @@ def tourist_places(request, destination: str):
         if cached_data:
             # Convert ObjectId to string
             cached_data["_id"] = str(cached_data["_id"])
+            print("Cached Data is used....")
             return {"source": "cache", **cached_data}
 
         # Step 2: Fetch from Google API
@@ -207,7 +208,7 @@ def tourist_places(request, destination: str):
         restaurant_places = get_places_by_type("restaurant", lat, lng)
 
         response_data = {
-            "destination": formatted_destination,
+            "destination": destination,
             "coordinates": {"lat": lat, "lng": lng},
             "tourist_attractions": tourist_places,
             "lodging": lodging_places,

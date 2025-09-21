@@ -13,6 +13,7 @@ export default function GroupDetailsStep() {
     has_children: false,
     has_pets: false,
     children_count: 0,
+    elder_count: 0,
     pets_count: 0
   });
 
@@ -137,6 +138,25 @@ export default function GroupDetailsStep() {
               type="number"
               name="children_count"
               value={formData.children_count}
+              onChange={handleInputChange}
+              min="0"
+              max="10"
+              className="w-full px-4 py-3 border border-yellow-300 rounded-lg focus:ring-2 focus:ring-yellow-500"
+            />
+          </div>
+        )}
+
+        {/* Conditional Fields */}
+        {formData.has_elderly && (
+          <div className="bg-yellow-50 rounded-xl p-6 border border-yellow-200">
+            <label className="block text-sm font-medium text-yellow-700 mb-3">
+              <Baby className="w-5 h-5 inline mr-2" />
+              How many Elders?
+            </label>
+            <input
+              type="number"
+              name="children_count"
+              value={formData.elder_count}
               onChange={handleInputChange}
               min="0"
               max="10"

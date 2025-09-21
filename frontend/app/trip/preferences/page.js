@@ -1,4 +1,6 @@
 // app/trip/preferences/page.js
+// Should add few more features like Budget Preference, Scenic Views (Choosing the route)
+
 "use client";
 
 import { useState, useEffect } from 'react';
