@@ -47,6 +47,9 @@ cd ../backend && pip install -r requirements.txt
 - Git
 - npm or yarn
 - pip (Python package manager)
+- Any Preferred Code Editor
+- MongoDB (For Trip Details)
+- MySQL (For User Details)
 
 1. **Clone the repository**
 
