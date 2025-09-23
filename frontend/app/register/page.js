@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -29,7 +30,7 @@ export default function RegisterPage() {
 
   return (
     <section className="flex items-center justify-center min-h-screen bg-gray-50">
-      <div className="w-full max-w-md bg-white rounded-xl shadow-lg p-8">
+      <div className="w-full max-w-md bg-white rounded-xl shadow-2xlrounded-2xl p-8">
         <h1 className="text-2xl font-bold text-center mb-6">Register</h1>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -42,7 +43,10 @@ export default function RegisterPage() {
               value={formData.name}
               onChange={handleChange}
               required
-              className="w-full mt-1 p-2 border rounded-lg focus:ring focus:ring-blue-200"
+              className="
+              w-full mt-1 p-2 border rounded-2xl focus:ring focus:ring-blue-200
+              outline-none border-none
+              "
             />
           </div>
 
@@ -55,7 +59,10 @@ export default function RegisterPage() {
               value={formData.email}
               onChange={handleChange}
               required
-              className="w-full mt-1 p-2 border rounded-lg focus:ring focus:ring-blue-200"
+              className="
+              w-full mt-1 p-2 border rounded-2xl focus:ring focus:ring-blue-200
+              outline-none border-none
+              "
             />
           </div>
 
@@ -68,7 +75,10 @@ export default function RegisterPage() {
               value={formData.password}
               onChange={handleChange}
               required
-              className="w-full mt-1 p-2 border rounded-lg focus:ring focus:ring-blue-200"
+              className="
+              w-full mt-1 p-2 border rounded-2xl focus:ring focus:ring-blue-200
+              outline-none border-none
+              "
             />
           </div>
 
@@ -81,13 +91,16 @@ export default function RegisterPage() {
               value={formData.confirmPassword}
               onChange={handleChange}
               required
-              className="w-full mt-1 p-2 border rounded-lg focus:ring focus:ring-blue-200"
+              className="
+              w-full mt-1 p-2 border rounded-2xl focus:ring focus:ring-blue-200
+              outline-none border-none
+              "
             />
           </div>
 
           <button
             type="submit"
-            className="w-full bg-green-600 text-white p-2 rounded-lg hover:bg-green-700 transition"
+            className="w-full bg-green-600 text-white p-2 rounded-2xl hover:bg-green-700 transition"
           >
             Register
           </button>
@@ -98,6 +111,13 @@ export default function RegisterPage() {
           <a href="/login" className="text-blue-600 hover:underline">
             Login
           </a>
+        </p>
+
+        {/* ✅ Home Link */}
+        <p className="text-sm text-center mt-2">
+          <Link href="/" className="text-gray-600 hover:underline">
+                ⬅ Back to Home
+        </Link>
         </p>
       </div>
     </section>

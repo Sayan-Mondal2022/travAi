@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -67,9 +68,9 @@ export default function LoginPage() {
 
         {/* ✅ Home Link */}
         <p className="text-sm text-center mt-2">
-          <a href="/" className="text-gray-600 hover:underline">
-            ⬅ Back to Home
-          </a>
+            <Link href="/" className="text-gray-600 hover:underline">
+                ⬅ Back to Home
+            </Link>
         </p>
       </div>
     </section>
