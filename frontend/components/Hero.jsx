@@ -9,26 +9,12 @@ export default function Hero() {
       style={{
         minHeight: '75vh',
         width: '100vw',
+        backgroundImage: "linear-gradient(to bottom, rgba(0,0,0,0.32) 60%, rgba(0,0,0,0.8) 100%), url('/Save-the-Earth.jpg')",
+        backgroundPosition: 'center bottom',
+        backgroundRepeat: 'no-repeat',
+        backgroundSize: 'cover',
       }}
     >
-      {/* Video background */}
-      <video
-        autoPlay
-        muted
-        loop
-        playsInline
-        className="absolute inset-0 w-full h-full object-cover -z-10"
-      >
-        <source src="/Save the Earth.mp4" type="video/mp4" />
-        Your browser does not support the video tag.
-      </video>
-
-      {/* Lighter overlay gradient for better video visibility */}
-      <div
-        className="absolute inset-0 -z-5"
-        style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.15), rgba(0,0,0,0.4))' }}
-      />
-
       <div className="mx-auto max-w-3xl relative z-10">
         <div className="mb-6 inline-flex items-center rounded-full bg-white/10 px-3 py-1 text-sm text-indigo-300 ring-1 ring-white/20 backdrop-blur-sm">
           ✨ Plan smarter, travel better
