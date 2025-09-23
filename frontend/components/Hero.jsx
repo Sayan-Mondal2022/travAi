@@ -7,8 +7,8 @@ export default function Hero() {
       id="hero"
       className="relative flex min-h-screen flex-col items-center justify-center px-6 py-24 text-center text-white sm:px-12 lg:px-20 overflow-hidden"
       style={{
-        minHeight: '75vh',
-        width: '100vw',
+        minHeight: '100vh',
+        width: '99vw',
         backgroundImage: "linear-gradient(to bottom, rgba(0,0,0,0.32) 60%, rgba(0,0,0,0.8) 100%), url('/Save-the-Earth.jpg')",
         backgroundPosition: 'center bottom',
         backgroundRepeat: 'no-repeat',
