@@ -5,31 +5,43 @@ export default function Hero() {
   return (
     <section
       id="hero"
-      className="relative isolate flex min-h-screen flex-col items-center justify-center overflow-hidden bg-gradient-to-br from-indigo-900 via-black to-indigo-950 px-6 py-24 text-center text-white sm:px-12 lg:px-20"
+      className="relative flex min-h-screen flex-col items-center justify-center px-6 py-24 text-center text-white sm:px-12 lg:px-20 overflow-hidden"
+      style={{
+        minHeight: '75vh',
+        width: '100vw',
+      }}
     >
-      {/* Background blobs */}
+      {/* Video background */}
+      <video
+        autoPlay
+        muted
+        loop
+        playsInline
+        className="absolute inset-0 w-full h-full object-cover -z-10"
+      >
+        <source src="/Save the Earth.mp4" type="video/mp4" />
+        Your browser does not support the video tag.
+      </video>
+
+      {/* Lighter overlay gradient for better video visibility */}
       <div
-        aria-hidden="true"
-        className="absolute -top-40 left-1/2 -z-10 h-[36rem] w-[72rem] -translate-x-1/2 rotate-45 bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 opacity-20 blur-3xl"
+        className="absolute inset-0 -z-5"
+        style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.15), rgba(0,0,0,0.4))' }}
       />
 
-      <div className="mx-auto max-w-3xl">
-        {/* Small badge */}
+      <div className="mx-auto max-w-3xl relative z-10">
         <div className="mb-6 inline-flex items-center rounded-full bg-white/10 px-3 py-1 text-sm text-indigo-300 ring-1 ring-white/20 backdrop-blur-sm">
           ✨ Plan smarter, travel better
         </div>
 
-        {/* Main heading */}
-        <h1 className="text-4xl font-bold tracking-tight sm:text-6xl lg:text-7xl">
+        <h1 className="text-4xl font-bold tracking-tight sm:text-6xl lg:text-7xl drop-shadow-xl">
           Navigate, Plan & Explore Effortlessly
         </h1>
 
-        {/* Subheading */}
-        <p className="mt-6 text-lg leading-8 text-gray-300 sm:text-xl">
+        <p className="mt-6 text-lg leading-8 text-gray-200 sm:text-xl drop-shadow-xl">
           TravAi helps you create smarter itineraries, discover the best routes, and make every trip seamless — all in one place.
         </p>
 
-        {/* Buttons */}
         <div className="mt-10 flex flex-wrap justify-center gap-4">
           <Link
             href="/trip"

@@ -1,4 +1,5 @@
 // components/Footer.jsx
+//app/pages/Footer.jsx
 import Link from 'next/link';
 import { 
   Facebook, 

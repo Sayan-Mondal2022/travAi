@@ -1,4 +1,4 @@
-// pages/places.jsx
+// app/pages/places.jsx
 "use client";
 
 import { useState, useEffect } from "react";

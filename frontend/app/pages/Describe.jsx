@@ -1,3 +1,4 @@
+//app/pages/Describe.jsx
 import WhyChooseCard from "@/components/WhyChooseCard";
 
 export default function Describe() {
