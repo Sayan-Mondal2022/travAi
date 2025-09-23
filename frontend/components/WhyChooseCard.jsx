@@ -1,16 +1,32 @@
 // components/WhyChooseCard.jsx
-export default function WhyChooseCard({ title, description, reverse = false }) {
+"use client";
+
+import { motion } from "framer-motion";
+
+export default function WhyChooseCard({ title, description, image, reverse = false }) {
   return (
-    <div
-      className={`flex flex-col md:flex-row items-center gap-8 p-6 rounded-2xl shadow-lg bg-white ${
-        reverse ? "md:flex-row-reverse" : ""
-      }`}
+    <motion.div
+      className={`flex flex-col md:flex-row items-center gap-8 p-8 rounded-3xl shadow-lg bg-white border border-gray-200 
+        ${reverse ? "md:flex-row-reverse" : ""}`}
+      initial={{ opacity: 0, y: 50 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: false, amount: 0.2 }}
+      transition={{ duration: 0.6, ease: "easeOut" }}
     >
-      {/* Text Section */}
-      <div className="w-full text-center md:text-left">
-        <h2 className="text-2xl font-bold mb-3">{title}</h2>
-        <p className="text-gray-600">{description}</p>
+      {/* Image Section */}
+      <div className="w-full md:w-1/2 h-64 flex-shrink-0">
+        <img
+          src={image}
+          alt={title}
+          className="w-full h-full object-cover rounded-lg"
+        />
       </div>
-    </div>
+
+      {/* Text Section */}
+      <div className="w-full md:w-1/2 text-center md:text-left">
+        <h2 className="text-2xl font-bold mb-3">{title}</h2>
+        <p className="text-gray-600 text-lg">{description}</p>
+      </div>
+    </motion.div>
   );
 }
