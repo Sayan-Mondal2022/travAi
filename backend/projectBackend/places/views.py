@@ -52,26 +52,6 @@ def list_trips(request):
     return {"trips": trips}
 
 
-def get_tourist_places(destination: str, limit: int = 10):
-    places_result = gmaps.places(
-        query=f"tourist attractions in {destination}",
-        type="tourist_attraction"
-    )
-
-    places = []
-    for place in places_result.get("results", [])[:limit]:
-        places.append({
-            "name": place.get("name"),
-            "address": place.get("formatted_address"),
-            "rating": place.get("rating"),
-            "user_ratings_total": place.get("user_ratings_total"),
-            "location": place["geometry"]["location"],
-            "operating_hours": ["09:00", "18:00"],  # Placeholder if not available
-            "reviews": []  # Placeholder if not available
-        })
-
-    return places
-
 def get_places_by_type(place_type: str, lat: float, lng: float):
     URL = "https://maps.googleapis.com/maps/api/place/nearbysearch/json"
     params = {
