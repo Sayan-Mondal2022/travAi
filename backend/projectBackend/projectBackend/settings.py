@@ -48,7 +48,9 @@ INSTALLED_APPS = [
     "ninja_jwt",
     "corsheaders",
 
+    # apps
     "places",
+    "trip_budget",
 ]
 
 MIDDLEWARE = [
