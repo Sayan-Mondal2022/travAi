@@ -50,6 +50,8 @@ cd ../backend && pip install -r requirements.txt
 - Any Preferred Code Editor
 - MongoDB (For Trip Details)
 - MySQL (For User Details)
+- Ngrok (To expose Local Servers, mainly using for Network Tunneling)
+- Dialogflow (To build a Conversational UI like a Chatbot)
 
 1. **Clone the repository**
 
