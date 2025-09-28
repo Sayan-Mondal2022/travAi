@@ -49,8 +49,9 @@ INSTALLED_APPS = [
     "corsheaders",
 
     # apps
-    "places",
-    "trip_budget",
+    "places",       # Will handle places and tours.
+    "trip_budget",  # Will be used for budget calculation.
+    "chatbot"       # This will be Dialogflow powered.
 ]
 
 MIDDLEWARE = [
