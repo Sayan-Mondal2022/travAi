@@ -33,6 +33,12 @@ We love your input! We want to make contributing to TravAi as easy and transpare
     # Create a Virtual Environment
     py -m python -m venv .venv
 
+    # On Windows (Using Git Bash):
+    source .venv/Scripts/activate
+    or
+    # On macOS/Linux:
+    source .venv/bin/activate
+
     pip install -r requirements.txt
     ```
 
