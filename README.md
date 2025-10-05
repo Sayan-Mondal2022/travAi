@@ -91,15 +91,21 @@ python3 -m venv venv
 .\venv\Scripts\activate
 # On Windows (CMD):
 venv\Scripts\activate.bat
+# On Windows (Using Git Bash):
+source venv/Scripts/activate
+
 # On macOS/Linux:
 source venv/bin/activate
 
 # Install Python dependencies
 pip install -r requirements.txt
+or
+# If using Mac or Linux:
+pip3 install -r requirements.txt
 
 # Start backend server
-# If using Django:
-python manage.py runserver
+cd projectBackend   # Then start the server
+py manage.py runserver
 ```
 - 📍 Backend will be available at: http://localhost:8000 or http://127.0.0.1:8000/
 
