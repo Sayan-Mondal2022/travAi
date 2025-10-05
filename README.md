@@ -82,20 +82,20 @@ npm run dev
 cd backend
 
 # Create virtual environment
-python -m venv venv
+python -m venv .venv
 # or for Python 3 specific
-python3 -m venv venv
+python3 -m venv .venv
 
 # Activate virtual environment
 # On Windows (PowerShell):
-.\venv\Scripts\activate
+.\.venv\Scripts\activate
 # On Windows (CMD):
-venv\Scripts\activate.bat
+.venv\Scripts\activate.bat
 # On Windows (Using Git Bash):
-source venv/Scripts/activate
+source .venv/Scripts/activate
 
 # On macOS/Linux:
-source venv/bin/activate
+source .venv/bin/activate
 
 # Install Python dependencies
 pip install -r requirements.txt
