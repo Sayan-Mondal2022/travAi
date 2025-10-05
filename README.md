@@ -10,20 +10,31 @@ We love your input! We want to make contributing to TravAi as easy and transpare
 ### 🚀 Getting Started
 
 #### First Time Setup
-```bash
-# Clone the repository
-git clone https://github.com/Sayan-Mondal2022/travAi.git
-cd travAi
 
-# Set up frontend (Terminal 1)
-cd frontend
-npm install
+- Step 1:
+    ```bash
+    # Clone the repository
+    git clone https://github.com/Sayan-Mondal2022/travAi.git
+    cd travAi
+    ```
 
-# Set up backend (Terminal 2)
-cd backend
-pip install -r requirements.txt
+- Step 2:
+    ```bash
+    # Set up frontend (Terminal 1)
+    cd frontend
+    npm install
+    ```
 
-```
+- Step 3:
+    ```bash
+    # Set up backend (Terminal 2)
+    cd backend
+
+    # Create a Virtual Environment
+    py -m python -m venv .venv
+
+    pip install -r requirements.txt
+    ```
 
 ### For Existing Contributors
 
