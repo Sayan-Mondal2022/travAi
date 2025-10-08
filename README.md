@@ -123,7 +123,7 @@ py manage.py runserver
 
 We extend our sincere gratitude to **CMR Institute of Technology, Bengaluru**, for providing us with the opportunity, guidance, and resources to successfully carry out this project.  
 
-We would also like to thank all the faculty members and non-teaching staff of the **Department of CSE Artificial Intelligence and Machine Learning** for their continuous support, encouragement, and motivation throughout this journey.  
+We would also like to thank all the faculty members and non-teaching staff of the **Department of Computer Science Engineering (Artificial Intelligence and Machine Learning)** for their continuous support, encouragement, and motivation throughout this journey.  
 
 We acknowledge the use of modern technologies that made this project possible — including **Django**, **Next.js**, **React Native**, **MongoDB**, **MySQL**, **Redis**, **Google APIs**, **Dialogflow**, and **Gemini AI**. 
 
