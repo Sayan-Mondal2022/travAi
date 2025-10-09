@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 // app/trip/places/page.js
 "use client";
 
@@ -74,8 +75,8 @@ export default function PlacesSelectionPage() {
     setSaving(true);
     try {
       localStorage.setItem("selectedPlaces", JSON.stringify(selectedPlaces));
-      localStorage.setItem("itineraryMode", mode); // ai | custom
-      router.push("/trip/itinerary");
+      localStorage.setItem("itineraryMode", mode);
+      router.push("/trip/generate");
     } catch (err) {
       setError("Failed to generate itinerary. Please try again.");
     } finally {
@@ -222,7 +223,10 @@ export default function PlacesSelectionPage() {
 
   const activePlaces = getActivePlaces();
   const startIndex = page * PLACES_PER_PAGE;
-  const currentPlaces = activePlaces.slice(startIndex, startIndex + PLACES_PER_PAGE);
+  const currentPlaces = activePlaces.slice(
+    startIndex,
+    startIndex + PLACES_PER_PAGE
+  );
   const hasMore = startIndex + PLACES_PER_PAGE < activePlaces.length;
 
   return (
@@ -273,16 +277,16 @@ export default function PlacesSelectionPage() {
           <div className="flex gap-3 flex-wrap justify-center">
             <button
               onClick={() => handleGenerateItinerary("ai")}
-              className="bg-[var(--secondary)] text-white py-2 px-4 rounded-2xl hover:opacity-90 font-semibold shadow-md transition-opacity"
+              className="bg-[var(--secondary)] text-white py-2 px-4 rounded-2xl hover:opacity-90 font-semibold shadow-md transition-opacity cursor-pointer"
             >
               AI Generated
             </button>
             <button
               onClick={() => handleGenerateItinerary("custom")}
               disabled={selectedPlaces.length === 0 || saving}
-              className="bg-[var(--primary)] text-white py-2 px-4 rounded-2xl hover:opacity-90 font-semibold shadow-md transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+              className="bg-[var(--primary)] text-white py-2 px-4 rounded-2xl hover:opacity-90 font-semibold shadow-md transition-opacity disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
-              {saving ? "Processing..." : `Custom (${selectedPlaces.length})`}
+              Custom Generated
             </button>
           </div>
         </div>
@@ -294,7 +298,9 @@ export default function PlacesSelectionPage() {
               setSelectedPlaces((prev) => {
                 const newSelection = [...prev];
                 currentPlaces.forEach((p) => {
-                  if (!newSelection.some((sel) => sel.place_id === p.place_id)) {
+                  if (
+                    !newSelection.some((sel) => sel.place_id === p.place_id)
+                  ) {
                     newSelection.push(p);
                   }
                 });
@@ -310,7 +316,8 @@ export default function PlacesSelectionPage() {
             onClick={() => {
               setSelectedPlaces((prev) =>
                 prev.filter(
-                  (sel) => !currentPlaces.some((p) => p.place_id === sel.place_id)
+                  (sel) =>
+                    !currentPlaces.some((p) => p.place_id === sel.place_id)
                 )
               );
             }}

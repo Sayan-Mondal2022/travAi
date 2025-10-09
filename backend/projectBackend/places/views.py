@@ -7,6 +7,7 @@ from ninja import Router
 import googlemaps
 from datetime import datetime, date
 from bson import ObjectId
+# from ML_models.models import itinerary_model
 
 trip_router = Router()
 tour_router = Router()
@@ -204,3 +205,8 @@ def tourist_places(request, destination: str):
 
     except Exception as e:
         return {"error": f"Internal server error: {str(e)}", "status": 500}
+    
+
+@tour_router.get("/itinerary/generate/")
+def generate_itinerary(request):
+    pass
