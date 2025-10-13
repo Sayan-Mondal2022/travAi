@@ -121,5 +121,6 @@ export default function DestinationStep() {
         </div>
       </div>
     </div>
+  // </div>
   );
 }
