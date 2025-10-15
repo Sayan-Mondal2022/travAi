@@ -4,6 +4,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { MapPin, ArrowRight } from "lucide-react";
+import Navbar from "@/components/Navbar";
 
 export default function DestinationStep() {
   const router = useRouter();
@@ -33,6 +34,8 @@ export default function DestinationStep() {
   };
 
   return (
+    <>
+    {/* <Navbar /> */}
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-xl">
         {/* Header */}
@@ -121,6 +124,6 @@ export default function DestinationStep() {
         </div>
       </div>
     </div>
-  // </div>
+   </>
   );
 }

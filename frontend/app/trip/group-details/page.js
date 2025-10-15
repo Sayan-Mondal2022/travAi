@@ -373,7 +373,7 @@ export default function GroupDetailsStep() {
           <div className="flex space-x-4 pt-6">
             <button
               type="submit"
-              className="flex-1 bg-purple-600 text-white py-3 px-6 rounded-2xl hover:bg-purple-700 hover:scale-105 active:scale-95 transition-all duration-200 font-medium"
+              className="flex-1 bg-purple-600 text-white py-3 px-6 rounded-2xl hover:bg-purple-700 hover:scale-105 active:scale-95 transition-all duration-200 font-medium cursor-pointer"
             >
               Next → Preferences
             </button>
