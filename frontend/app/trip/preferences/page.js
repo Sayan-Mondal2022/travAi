@@ -88,7 +88,7 @@ export default function PreferencesStep() {
     weather_preference: "",
     mode_of_transport: "",
     travel_preferences: [],
-    budget: 2000,
+    budget: BUDGET_RANGES.default.min,
   });
   const [currentBudgetRange, setCurrentBudgetRange] = useState(
     BUDGET_RANGES.default
