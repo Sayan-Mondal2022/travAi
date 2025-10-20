@@ -1,5 +1,6 @@
 # Editor Specific
 .vscode/
+.idea
 
 # Python
 __pycache__
