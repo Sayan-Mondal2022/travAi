@@ -113,9 +113,23 @@ py manage.py runserver
     GEMINI_API_KEY=GEMINI_API_KEY
     ```
 
-5. **Database Setup (If Applicable)**
+5. **MySQL Database Setup**
 
-    - Create a new database named `USER_DB` and a new user named `root` within MySQL  
+    - Create a new database named `USER_DB` and a new user named `root` within MySQL 
+    
+        ```bash
+        -- Create the database
+        CREATE DATABASE USER_DB;
+
+        -- Create the user (replace 'host' with 'localhost' or specific host)
+        CREATE USER 'root'@'localhost' IDENTIFIED BY 'MYSQL_PASSWORD';
+
+        -- Grant privileges to the user for the database
+        GRANT ALL PRIVILEGES ON USER_DB.* TO 'root'@'localhost';
+
+        -- Apply the privilege changes
+        FLUSH PRIVILEGES;
+        ```
 
 ---
 
