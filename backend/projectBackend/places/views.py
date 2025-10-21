@@ -9,6 +9,15 @@ from datetime import datetime, date
 from bson import ObjectId
 from django.http import JsonResponse
 import logging
+import sys
+import os
+
+# Add the parent directory to Python path
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
+
+# Now you can import directly
+from ML_models.services.ai_service import AIItineraryService
+from ML_models.services.data_enrichment import DataEnrichmentService
 
 logger = logging.getLogger(__name__)
 trip_router = Router()
@@ -210,5 +219,295 @@ def tourist_places(request, destination: str):
     
 
 @tour_router.post("/itinerary/generate/")
-def generate_itinerary(request):
-    pass
+async def generate_itinerary(request, payload: dict):
+    """
+    Generate itinerary using AI service with optional custom places
+    """
+    try:
+        # Extract request data
+        destination = payload.get('destination')
+        days = payload.get('days')
+        preferences = payload.get('preferences', [])
+        mode = payload.get('mode', 'ai')
+        custom_places = payload.get('places', [])
+        
+        # Validate required fields
+        if not destination:
+            return JsonResponse(
+                {"error": "Destination is required"}, 
+                status=400
+            )
+        
+        if not days or days < 1:
+            return JsonResponse(
+                {"error": "Valid number of days is required"}, 
+                status=400
+            )
+
+        # Prepare request data for AI service
+        request_data = {
+            'destination': destination,
+            'duration': days,
+            'preferences': preferences,
+            'mode': mode,
+            'places': custom_places if mode == 'custom' else []
+        }
+
+        # Add additional trip details if available
+        optional_fields = ['budget', 'group_size', 'travel_style', 'start_date', 'end_date']
+        for field in optional_fields:
+            if field in payload:
+                request_data[field] = payload[field]
+
+        # Initialize AI service
+        ai_service = AIItineraryService()
+        data_enrichment = DataEnrichmentService()
+
+        # Generate base itinerary
+        logger.info(f"Generating itinerary for {destination}, {days} days, mode: {mode}")
+        
+        base_itinerary = await ai_service.generate_itinerary(request_data)
+        
+        # Enrich itinerary with real-time data
+        enriched_itinerary = await data_enrichment.enrich_itinerary(
+            base_itinerary, 
+            destination
+        )
+
+        # Save to database for history
+        itinerary_doc = {
+            'destination': destination,
+            'days': days,
+            'mode': mode,
+            'preferences': preferences,
+            'itinerary': enriched_itinerary,
+            'generated_at': datetime.now(),
+            'user_id': getattr(request, 'user_id', None)  # If you have user authentication
+        }
+
+        # Store in MongoDB
+        result = settings.MONGO_DB.itineraries.insert_one(itinerary_doc)
+        itinerary_doc['_id'] = str(result.inserted_id)
+
+        logger.info(f"Successfully generated itinerary for {destination}")
+
+        return {
+            "success": True,
+            "itinerary": enriched_itinerary,
+            "itinerary_id": str(result.inserted_id),
+            "metadata": {
+                "destination": destination,
+                "days": days,
+                "mode": mode,
+                "generated_at": datetime.now().isoformat()
+            }
+        }
+
+    except Exception as e:
+        logger.error(f"Itinerary generation failed: {str(e)}")
+        return JsonResponse(
+            {"error": f"Failed to generate itinerary: {str(e)}"}, 
+            status=500
+        )
+    
+@tour_router.get("/itinerary/{itinerary_id}")
+def get_itinerary(request, itinerary_id: str):
+    """
+    Retrieve a specific itinerary by ID
+    """
+    try:
+        itinerary = settings.MONGO_DB.itineraries.find_one(
+            {"_id": ObjectId(itinerary_id)}
+        )
+        
+        if not itinerary:
+            return JsonResponse(
+                {"error": "Itinerary not found"}, 
+                status=404
+            )
+        
+        itinerary['_id'] = str(itinerary['_id'])
+        if isinstance(itinerary.get('generated_at'), datetime):
+            itinerary['generated_at'] = itinerary['generated_at'].isoformat()
+        
+        return {"itinerary": itinerary}
+        
+    except Exception as e:
+        logger.error(f"Failed to retrieve itinerary: {str(e)}")
+        return JsonResponse(
+            {"error": "Failed to retrieve itinerary"}, 
+            status=500
+        )
+
+@tour_router.post("/itinerary/{itinerary_id}/refine/")
+async def refine_itinerary(request, itinerary_id: str, payload: dict):
+    """
+    Refine an existing itinerary based on user feedback
+    """
+    try:
+        feedback = payload.get('feedback')
+        if not feedback:
+            return JsonResponse(
+                {"error": "Feedback is required for refinement"}, 
+                status=400
+            )
+
+        # Get original itinerary
+        original_itinerary = settings.MONGO_DB.itineraries.find_one(
+            {"_id": ObjectId(itinerary_id)}
+        )
+        
+        if not original_itinerary:
+            return JsonResponse(
+                {"error": "Original itinerary not found"}, 
+                status=404
+            )
+
+        # Initialize AI service
+        ai_service = AIItineraryService()
+        
+        # Refine itinerary
+        refined_itinerary = await ai_service.refine_itinerary(
+            original_itinerary['itinerary'],
+            feedback
+        )
+
+        # Save refined version
+        refined_doc = {
+            'original_itinerary_id': itinerary_id,
+            'destination': original_itinerary['destination'],
+            'days': original_itinerary['days'],
+            'feedback': feedback,
+            'itinerary': refined_itinerary,
+            'refined_at': datetime.now(),
+            'user_id': getattr(request, 'user_id', None)
+        }
+
+        result = settings.MONGO_DB.refined_itineraries.insert_one(refined_doc)
+        refined_doc['_id'] = str(result.inserted_id)
+
+        return {
+            "success": True,
+            "refined_itinerary": refined_itinerary,
+            "refined_itinerary_id": str(result.inserted_id)
+        }
+
+    except Exception as e:
+        logger.error(f"Itinerary refinement failed: {str(e)}")
+        return JsonResponse(
+            {"error": f"Failed to refine itinerary: {str(e)}"}, 
+            status=500
+        )
+
+@tour_router.post("/itinerary/{itinerary_id}/alternative/")
+async def generate_alternative(request, itinerary_id: str, payload: dict):
+    """
+    Generate alternative version of an itinerary
+    """
+    try:
+        alternative_type = payload.get('type', 'budget')
+        valid_types = ['budget', 'luxury', 'adventure', 'cultural', 'family', 'romantic']
+        
+        if alternative_type not in valid_types:
+            return JsonResponse(
+                {"error": f"Invalid alternative type. Must be one of: {valid_types}"}, 
+                status=400
+            )
+
+        # Get base itinerary
+        base_itinerary = settings.MONGO_DB.itineraries.find_one(
+            {"_id": ObjectId(itinerary_id)}
+        )
+        
+        if not base_itinerary:
+            return JsonResponse(
+                {"error": "Base itinerary not found"}, 
+                status=404
+            )
+
+        # Initialize AI service
+        ai_service = AIItineraryService()
+        
+        # Generate alternative
+        alternative_itinerary = await ai_service.generate_alternatives(
+            base_itinerary['itinerary'],
+            alternative_type
+        )
+
+        # Save alternative version
+        alternative_doc = {
+            'original_itinerary_id': itinerary_id,
+            'alternative_type': alternative_type,
+            'destination': base_itinerary['destination'],
+            'days': base_itinerary['days'],
+            'itinerary': alternative_itinerary,
+            'generated_at': datetime.now(),
+            'user_id': getattr(request, 'user_id', None)
+        }
+
+        result = settings.MONGO_DB.alternative_itineraries.insert_one(alternative_doc)
+        alternative_doc['_id'] = str(result.inserted_id)
+
+        return {
+            "success": True,
+            "alternative_itinerary": alternative_itinerary,
+            "alternative_itinerary_id": str(result.inserted_id),
+            "type": alternative_type
+        }
+
+    except Exception as e:
+        logger.error(f"Alternative itinerary generation failed: {str(e)}")
+        return JsonResponse(
+            {"error": f"Failed to generate alternative itinerary: {str(e)}"}, 
+            status=500
+        )
+
+@tour_router.get("/itinerary/user/{user_id}")
+def get_user_itineraries(request, user_id: str):
+    """
+    Get all itineraries for a specific user
+    """
+    try:
+        itineraries = []
+        
+        # Get original itineraries
+        for itinerary in settings.MONGO_DB.itineraries.find({"user_id": user_id}):
+            itinerary['_id'] = str(itinerary['_id'])
+            if isinstance(itinerary.get('generated_at'), datetime):
+                itinerary['generated_at'] = itinerary['generated_at'].isoformat()
+            itineraries.append({
+                **itinerary,
+                'type': 'original'
+            })
+
+        # Get refined itineraries
+        for itinerary in settings.MONGO_DB.refined_itineraries.find({"user_id": user_id}):
+            itinerary['_id'] = str(itinerary['_id'])
+            if isinstance(itinerary.get('refined_at'), datetime):
+                itinerary['refined_at'] = itinerary['refined_at'].isoformat()
+            itineraries.append({
+                **itinerary,
+                'type': 'refined'
+            })
+
+        # Get alternative itineraries
+        for itinerary in settings.MONGO_DB.alternative_itineraries.find({"user_id": user_id}):
+            itinerary['_id'] = str(itinerary['_id'])
+            if isinstance(itinerary.get('generated_at'), datetime):
+                itinerary['generated_at'] = itinerary['generated_at'].isoformat()
+            itineraries.append({
+                **itinerary,
+                'type': 'alternative'
+            })
+
+        # Sort by date (most recent first)
+        itineraries.sort(key=lambda x: x.get('generated_at') or x.get('refined_at'), reverse=True)
+
+        return {"itineraries": itineraries}
+
+    except Exception as e:
+        logger.error(f"Failed to retrieve user itineraries: {str(e)}")
+        return JsonResponse(
+            {"error": "Failed to retrieve itineraries"}, 
+            status=500
+        )

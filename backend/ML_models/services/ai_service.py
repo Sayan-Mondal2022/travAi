@@ -1,4 +1,5 @@
-import openai
+import google.generativeai as genai
+from google.api_core import exceptions as google_exceptions
 import json
 import logging
 from typing import Dict, Any, Optional
@@ -11,7 +12,7 @@ from .cache_manager import CacheManager
 logger = logging.getLogger(__name__)
 
 class AIItineraryService:
-    """Service for generating itineraries using AI"""
+    """Service for generating itineraries using Google Gemini"""
     
     def __init__(self):
         self.api_keys = APIKeyManager()
@@ -19,13 +20,13 @@ class AIItineraryService:
         self.response_parser = ResponseParser()
         self.cache_manager = CacheManager()
         
-        # Initialize OpenAI client
-        if self.api_keys.is_service_available('openai'):
-            self.client = openai.OpenAI(
-                api_key=self.api_keys.get_key('openai')
+        # Initialize Google Gemini client
+        if self.api_keys.is_service_available('google'):
+            genai.configure(
+                api_key=self.api_keys.get_key('google')
             )
         else:
-            raise ValueError("OpenAI API key not found")
+            raise ValueError("Google Gemini API key not found")
     
     async def generate_itinerary(self, request_data: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -51,10 +52,11 @@ class AIItineraryService:
             system_prompt = self.prompt_builder.get_system_prompt()
             
             # Generate with AI
-            response = await self._call_openai(system_prompt, prompt)
+            response_text = await self._call_gemini(system_prompt, prompt)
             
             # Parse and validate response
-            parsed_itinerary = self.response_parser.parse_itinerary_response(response)
+            # Gemini response is a JSON string, so we parse it here.
+            parsed_itinerary = self.response_parser.parse_itinerary_response(response_text)
             
             # Cache the result
             self.cache_manager.set(cache_key, parsed_itinerary)
@@ -85,8 +87,8 @@ class AIItineraryService:
             )
             system_prompt = self.prompt_builder.get_refinement_system_prompt()
             
-            response = await self._call_openai(system_prompt, prompt)
-            refined_itinerary = self.response_parser.parse_itinerary_response(response)
+            response_text = await self._call_gemini(system_prompt, prompt)
+            refined_itinerary = self.response_parser.parse_itinerary_response(response_text)
             
             logger.info("Successfully refined itinerary")
             return refined_itinerary
@@ -114,8 +116,8 @@ class AIItineraryService:
             )
             system_prompt = self.prompt_builder.get_system_prompt()
             
-            response = await self._call_openai(system_prompt, prompt)
-            alternative_itinerary = self.response_parser.parse_itinerary_response(response)
+            response_text = await self._call_gemini(system_prompt, prompt)
+            alternative_itinerary = self.response_parser.parse_itinerary_response(response_text)
             
             logger.info(f"Successfully generated {alternative_type} alternative")
             return alternative_itinerary
@@ -124,44 +126,43 @@ class AIItineraryService:
             logger.error(f"Failed to generate alternative: {str(e)}")
             raise Exception(f"Alternative generation failed: {str(e)}")
     
-    async def _call_openai(self, system_prompt: str, user_prompt: str) -> str:
-        """Make API call to OpenAI"""
+    async def _call_gemini(self, system_prompt: str, user_prompt: str) -> str:
+        """Make API call to Google Gemini"""
         try:
-            response = self.client.chat.completions.create(
-                model=AI_MODELS['primary'],
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ],
-                temperature=AI_MODELS['temperature'],
-                max_tokens=AI_MODELS['max_tokens'],
-                response_format={"type": "json_object"}
+            model = genai.GenerativeModel(
+                model_name=AI_MODELS['primary'],
+                system_instruction=system_prompt,
+                generation_config={
+                    "temperature": AI_MODELS['temperature'],
+                    "max_output_tokens": AI_MODELS['max_tokens'],
+                    "response_mime_type": "application/json",
+                }
             )
+            response = await model.generate_content_async(user_prompt)
+            return response.text
             
-            return response.choices[0].message.content
-            
-        except openai.RateLimitError:
+        except google_exceptions.ResourceExhausted:
             logger.warning("Rate limit hit, trying fallback model")
-            response = self.client.chat.completions.create(
-                model=AI_MODELS['fallback'],
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ],
-                temperature=AI_MODELS['temperature'],
-                max_tokens=AI_MODELS['max_tokens'] - 500,  # Reduce tokens for fallback
-                response_format={"type": "json_object"}
+            fallback_model = genai.GenerativeModel(
+                model_name=AI_MODELS['fallback'],
+                system_instruction=system_prompt,
+                generation_config={
+                    "temperature": AI_MODELS['temperature'],
+                    "max_output_tokens": AI_MODELS['max_tokens'] - 500,  # Reduce tokens for fallback
+                    "response_mime_type": "application/json",
+                }
             )
-            
-            return response.choices[0].message.content
+            response = await fallback_model.generate_content_async(user_prompt)
+            return response.text
             
         except Exception as e:
-            logger.error(f"OpenAI API call failed: {str(e)}")
+            logger.error(f"Google Gemini API call failed: {str(e)}")
             raise
     
     def estimate_cost(self, request_data: Dict[str, Any]) -> float:
         """Estimate the cost of generating an itinerary"""
-        # Rough estimation based on prompt length and complexity
+        # This estimation is abstract and doesn't need to change, 
+        # but you might adjust the base cost based on Gemini's pricing.
         base_cost = 0.01  # Base cost in USD
         
         duration = request_data.get('duration', 3)

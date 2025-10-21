@@ -11,7 +11,7 @@ class APIKeyManager:
     def __init__(self):
         self.keys = {
             # Use GOOGLE_GEMINI_API
-            'openai': os.getenv('OPENAI_API_KEY'),
+            'GEMINI_API_KEY': os.getenv('GEMINI_API_KEY'),
             'google_maps': os.getenv('GOOGLE_MAPS_API_KEY'),
 
             # Weather API will be the same as GOOGLE_API, I think we can use the same.
