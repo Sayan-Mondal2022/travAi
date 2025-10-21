@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 from django.conf import settings
 from .schemas import TripDetailsSchema
 from ninja import Router
+from ninja import Body
 import googlemaps
 from datetime import datetime, date
 from bson import ObjectId
@@ -219,78 +220,77 @@ def tourist_places(request, destination: str):
     
 
 @tour_router.post("/itinerary/generate/")
-async def generate_itinerary(request, payload: dict):
+async def generate_itinerary(request, payload: dict = Body(...)):
     """
     Generate itinerary using AI service with optional custom places
     """
     try:
+        # Log incoming data for debugging
+        # print("Received Payload:", payload)
+
         # Extract request data
         destination = payload.get('destination')
-        days = payload.get('days')
+        days = int(payload.get('days', 0))
         preferences = payload.get('preferences', [])
         mode = payload.get('mode', 'ai')
         custom_places = payload.get('places', [])
-        
-        # Validate required fields
+
+        # --- Validate required fields ---
         if not destination:
-            return JsonResponse(
-                {"error": "Destination is required"}, 
-                status=400
-            )
-        
-        if not days or days < 1:
-            return JsonResponse(
-                {"error": "Valid number of days is required"}, 
-                status=400
-            )
+            return {"success": False, "error": "Destination is required."}
 
-        # Prepare request data for AI service
+        if days < 1:
+            return {"success": False, "error": "Valid number of days is required."}
+
+        # --- Prepare request data for AI service ---
         request_data = {
-            'destination': destination,
-            'duration': days,
-            'preferences': preferences,
-            'mode': mode,
-            'places': custom_places if mode == 'custom' else []
+            "destination": destination,
+            "duration": days,
+            "preferences": preferences,
+            "mode": mode,
         }
+        print(request_data)
 
-        # Add additional trip details if available
-        optional_fields = ['budget', 'group_size', 'travel_style', 'start_date', 'end_date']
+        # For custom mode, include selected places
+        if mode == "custom" and custom_places:
+            request_data["places"] = custom_places
+
+        # Add optional trip details
+        optional_fields = ["budget", "group_size", "travel_style", "start_date", "end_date"]
         for field in optional_fields:
             if field in payload:
                 request_data[field] = payload[field]
 
-        # Initialize AI service
+        # --- Initialize AI services ---
         ai_service = AIItineraryService()
         data_enrichment = DataEnrichmentService()
 
-        # Generate base itinerary
         logger.info(f"Generating itinerary for {destination}, {days} days, mode: {mode}")
-        
-        base_itinerary = await ai_service.generate_itinerary(request_data)
-        
-        # Enrich itinerary with real-time data
-        enriched_itinerary = await data_enrichment.enrich_itinerary(
-            base_itinerary, 
-            destination
-        )
 
-        # Save to database for history
+        # --- Generate itinerary ---
+        base_itinerary = await ai_service.generate_itinerary(request_data)
+        print("Base plan:",base_itinerary)
+        enriched_itinerary = await data_enrichment.enrich_itinerary(base_itinerary, destination)
+
+        # --- Save itinerary ---
         itinerary_doc = {
-            'destination': destination,
-            'days': days,
-            'mode': mode,
-            'preferences': preferences,
-            'itinerary': enriched_itinerary,
-            'generated_at': datetime.now(),
-            'user_id': getattr(request, 'user_id', None)  # If you have user authentication
+            "destination": destination,
+            "days": days,
+            "mode": mode,
+            "preferences": preferences,
+            "custom_places": custom_places if mode == "custom" else [],
+            "itinerary": enriched_itinerary,
+            "generated_at": datetime.now(),
+            "user_id": getattr(request, "user_id", None),
         }
 
-        # Store in MongoDB
         result = settings.MONGO_DB.itineraries.insert_one(itinerary_doc)
-        itinerary_doc['_id'] = str(result.inserted_id)
+        itinerary_doc["_id"] = str(result.inserted_id)
 
         logger.info(f"Successfully generated itinerary for {destination}")
 
+        # --- Return response ---
+        print("Itinerary:",enriched_itinerary)
         return {
             "success": True,
             "itinerary": enriched_itinerary,
@@ -299,17 +299,15 @@ async def generate_itinerary(request, payload: dict):
                 "destination": destination,
                 "days": days,
                 "mode": mode,
-                "generated_at": datetime.now().isoformat()
-            }
+                "generated_at": datetime.now().isoformat(),
+            },
         }
 
     except Exception as e:
         logger.error(f"Itinerary generation failed: {str(e)}")
-        return JsonResponse(
-            {"error": f"Failed to generate itinerary: {str(e)}"}, 
-            status=500
-        )
+        return {"success": False, "error": f"Failed to generate itinerary: {str(e)}"}
     
+
 @tour_router.get("/itinerary/{itinerary_id}")
 def get_itinerary(request, itinerary_id: str):
     """
@@ -511,3 +509,12 @@ def get_user_itineraries(request, user_id: str):
             {"error": "Failed to retrieve itineraries"}, 
             status=500
         )
+
+@tour_router.get("/test/")
+def test_endpoint(request):
+    return {"message": "Tour router is working!"}
+
+@tour_router.get("/itinerary/test/")
+def test_itinerary(request):
+    return {"message": "Itinerary endpoint is accessible"}
+

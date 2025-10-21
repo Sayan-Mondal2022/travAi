@@ -19,6 +19,8 @@ class AIItineraryService:
         self.prompt_builder = PromptBuilder()
         self.response_parser = ResponseParser()
         self.cache_manager = CacheManager()
+
+        print("Initializing Google Gemini client")
         
         # Initialize Google Gemini client
         if self.api_keys.is_service_available('google'):

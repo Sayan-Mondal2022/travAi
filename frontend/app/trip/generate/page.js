@@ -60,7 +60,7 @@ export default function ItineraryPage() {
         // 3. Make the API call to the backend
         // This endpoint will contain the logic to call the LLM
         console.log(payload.places);
-        const response = await apiPost("/api/tour/itinerary/generate", payload);
+        const response = await apiPost("/api/tour/itinerary/generate/", payload);
 
         if (!response || !response.itinerary) {
           throw new Error("Failed to generate itinerary from the server.");
