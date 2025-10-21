@@ -3,22 +3,17 @@ import requests
 from dotenv import load_dotenv
 from django.conf import settings
 from .schemas import TripDetailsSchema
-from ninja import Router
-from ninja import Body
+from ninja import Router, Body
 import googlemaps
 from datetime import datetime, date
-from bson import ObjectId
-from django.http import JsonResponse
 import logging
 import sys
 import os
+import json
+import google.generativeai as genai
 
 # Add the parent directory to Python path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
-
-# Now you can import directly
-from ML_models.services.ai_service import AIItineraryService
-from ML_models.services.data_enrichment import DataEnrichmentService
 
 logger = logging.getLogger(__name__)
 trip_router = Router()
@@ -27,7 +22,212 @@ tour_router = Router()
 # Load environment variables from .env file
 load_dotenv()
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+GOOGLE_GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 gmaps = googlemaps.Client(key=GOOGLE_API_KEY)
+
+class GeminiItineraryService:
+    def __init__(self):
+        genai.configure(api_key=GOOGLE_GEMINI_API_KEY)
+        self.model = genai.GenerativeModel(
+            'gemini-2.5-flash',
+            generation_config={"response_mime_type": "application/json"}
+        )
+    
+    async def generate_itinerary(self, request_data):
+        try:
+            prompt = self._build_itinerary_prompt(request_data)
+            response = await self.model.generate_content_async(prompt)
+            return json.loads(response.text)
+
+        except Exception as e:
+            logger.error(f"Gemini itinerary generation failed: {str(e)}")
+            raise Exception(f"AI service failed: {str(e)}")
+    
+    def _build_itinerary_prompt(self, request_data):
+        """Build a detailed prompt for Gemini"""
+        
+        destination = request_data.get('destination', 'an amazing place')
+        days = request_data.get('duration', 3)
+        preferences = request_data.get('preferences', [])
+        budget = request_data.get('budget', 'moderate')
+        group_size = request_data.get('group_size', 2)
+        travel_style = request_data.get('travel_style', 'balanced')
+        mode = request_data.get('mode', 'ai')
+        custom_places = request_data.get('places', [])
+
+        base_prompt = f"""
+        Create a detailed {days}-day travel itinerary for {destination} for {group_size} people.
+        
+        Travel Style: {travel_style}
+        Budget: {budget}
+        Preferences: {', '.join(preferences) if preferences else 'General travel'}
+        
+        Please structure the itinerary with:
+        1. Daily schedule with time slots (Morning, Afternoon, Evening)
+        2. Specific attractions/activities for each time slot
+        3. Travel tips and recommendations
+        4. Estimated costs where relevant
+        5. Local cuisine suggestions
+        6. Transportation options between locations
+        
+        Format the response as a structured JSON-like format that can be easily parsed.
+        """
+        
+        if mode == "custom" and custom_places:
+            base_prompt += f"""
+            
+            Please incorporate these specific places into the itinerary:
+            {', '.join([place.get('name', '') for place in custom_places])}
+            
+            Ensure these places are properly distributed across the {days} days.
+            """
+        
+        return base_prompt
+    
+    def _parse_itinerary_response(self, response_text, days):
+        """Parse Gemini response into structured itinerary format"""
+        try:
+            itinerary = {"summary": "Generated Itinerary", "days": []}
+            lines = response_text.splitlines()
+            current_day = None
+            
+            for line in lines:
+                line = line.strip()
+                if line.lower().startswith('day') or line.lower().startswith('day'):
+                    if current_day:
+                        itinerary["days"].append(current_day)
+                    current_day = {
+                        "day": len(itinerary["days"]) + 1,
+                        "activities": [],
+                        "description": line
+                    }
+                elif line and current_day:
+                    current_day["activities"].append({
+                        "description": line,
+                        "time": "To be determined"
+                    })
+            
+            if current_day and len(itinerary["days"]) < days:
+                itinerary["days"].append(current_day)
+            
+            # Fill in any missing days
+            while len(itinerary["days"]) < days:
+                itinerary["days"].append({
+                    "day": len(itinerary["days"]) + 1,
+                    "activities": [{"description": "Free time / Flexible activities", "time": "All day"}],
+                    "description": f"Day {len(itinerary['days']) + 1} - Flexible planning"
+                })
+            
+            return itinerary
+            
+        except Exception as e:
+            logger.error(f"Failed to parse Gemini response: {str(e)}")
+            # Return a fallback itinerary structure
+            return self._create_fallback_itinerary(days)
+    
+    def _create_fallback_itinerary(self, days):
+        """Create a basic fallback itinerary when parsing fails"""
+        itinerary = {
+            "summary": f"{days}-day basic itinerary",
+            "days": []
+        }
+        
+        for day in range(1, days + 1):
+            itinerary["days"].append({
+                "day": day,
+                "description": f"Day {day} - Exploration",
+                "activities": [
+                    {"time": "Morning", "description": "Breakfast and morning activities"},
+                    {"time": "Afternoon", "description": "Lunch and afternoon exploration"},
+                    {"time": "Evening", "description": "Dinner and evening activities"}
+                ]
+            })
+        
+        return itinerary
+    
+    async def refine_itinerary(self, original_itinerary, feedback):
+        """Refine existing itinerary based on user feedback using Gemini"""
+        try:
+            prompt = f"""
+            Please refine the following travel itinerary based on this feedback: "{feedback}"
+            
+            Original Itinerary:
+            {original_itinerary}
+            
+            Please provide an improved version that addresses the feedback while maintaining
+            the overall structure and key activities. Keep the same number of days and
+            maintain a practical, realistic schedule.
+            """
+            
+            response = self.model.generate_content(prompt)
+            refined_itinerary = self._parse_itinerary_response(response.text, len(original_itinerary.get('days', [])))
+            
+            return refined_itinerary
+            
+        except Exception as e:
+            logger.error(f"Gemini itinerary refinement failed: {str(e)}")
+            raise Exception(f"Failed to refine itinerary: {str(e)}")
+    
+    async def generate_alternatives(self, base_itinerary, alternative_type):
+        """Generate alternative itinerary versions using Gemini"""
+        try:
+            type_descriptions = {
+                'budget': 'cost-effective and affordable options',
+                'luxury': 'premium and luxury experiences',
+                'adventure': 'adventure and outdoor activities',
+                'cultural': 'cultural and historical experiences',
+                'family': 'family-friendly activities',
+                'romantic': 'romantic and couple-focused experiences'
+            }
+            
+            description = type_descriptions.get(alternative_type, 'alternative experiences')
+            
+            prompt = f"""
+            Create a {alternative_type}-focused alternative version of this itinerary.
+            
+            Original Itinerary:
+            {base_itinerary}
+            
+            Focus on: {description}
+            Maintain the same destination and number of days, but adjust activities and
+            recommendations to better suit this travel style.
+            """
+            
+            response = self.model.generate_content(prompt)
+            alternative_itinerary = self._parse_itinerary_response(response.text, len(base_itinerary.get('days', [])))
+            
+            return alternative_itinerary
+            
+        except Exception as e:
+            logger.error(f"Gemini alternative itinerary generation failed: {str(e)}")
+            raise Exception(f"Failed to generate alternative itinerary: {str(e)}")
+
+
+class DataEnrichmentService:
+    """Enhanced data enrichment service"""
+    
+    async def enrich_itinerary(self, itinerary, destination):
+        """Add additional information to itinerary"""
+        try:
+            # Add destination information
+            if 'days' in itinerary:
+                for day in itinerary['days']:
+                    if 'activities' in day:
+                        for activity in day['activities']:
+                            # Add basic enrichment - you can expand this
+                            if 'description' in activity:
+                                activity['enriched'] = True
+                                activity['destination'] = destination
+            
+            # Add general metadata
+            itinerary['enriched_at'] = datetime.now().isoformat()
+            itinerary['data_source'] = 'Gemini AI + Google Places'
+            
+            return itinerary
+            
+        except Exception as e:
+            logger.error(f"Itinerary enrichment failed: {str(e)}")
+            return itinerary  # Return original if enrichment fails
 
 
 # --- Trip Endpoints ---
@@ -121,61 +321,6 @@ def get_coordinates(destination: str):
         print(f"Geocoding error for {destination}: {e}")
         return None, None, f"Geocoding failed: {str(e)}"
 
-"""
-    The Places that were fetched, is not having a time or opening hours
-"""
-def filter_places(places, start_time, end_time, min_rating):
-    """
-    Filters places based on operating hours and average review rating.
-    NOTE: This function assumes a very specific input data structure.
-    """
-    # These become datetime objects with a date of 1900-01-01
-    start = datetime.strptime(start_time, "%H:%M")
-    end = datetime.strptime(end_time, "%H:%M")
-    
-    # FIX 1: Get the current datetime correctly
-    current_time = datetime.now()
-
-    filtered = []
-    for place in places:
-        # --- Check operating hours ---
-        # This part remains risky and depends heavily on the input format
-        try:
-            hours = place.get("operating_hours", ["00:00", "23:59"])
-            open_time = datetime.strptime(hours[0], "%H:%M")
-            close_time = datetime.strptime(hours[1], "%H:%M")
-            
-            # Make current_time comparable by setting the date to 1900-01-01
-            current_time_only = current_time.replace(year=1900, month=1, day=1, microsecond=0)
-            is_open_now = open_time <= current_time_only <= close_time
-        except (ValueError, TypeError):
-            # If operating_hours format is wrong, assume it's open to be safe
-            is_open_now = True
-
-        # --- Check reviews in time window ---
-        reviews = place.get("reviews", [])
-        relevant_reviews = []
-        for review in reviews:
-            try:
-                review_time = datetime.fromisoformat(review.get("timestamp"))
-                # FIX 2: Compare only the .time() parts of the datetime objects
-                if start.time() <= review_time.time() <= end.time():
-                    relevant_reviews.append(review)
-            except (ValueError, TypeError, AttributeError):
-                # Ignore reviews with bad timestamps
-                continue
-        
-        if relevant_reviews:
-            average_rating = sum(r.get("rating", 0) for r in relevant_reviews) / len(relevant_reviews)
-        else:
-            # If no relevant reviews, use the place's overall rating as a fallback
-            average_rating = place.get("rating", 0)
-        
-        if is_open_now and average_rating >= min_rating:
-            filtered.append(place)
-
-    return filtered
-
 
 @tour_router.get("/places/{destination}")
 def tourist_places(request, destination: str):
@@ -222,12 +367,9 @@ def tourist_places(request, destination: str):
 @tour_router.post("/itinerary/generate/")
 async def generate_itinerary(request, payload: dict = Body(...)):
     """
-    Generate itinerary using AI service with optional custom places
+    Generate itinerary using Google Gemini API with optional custom places
     """
     try:
-        # Log incoming data for debugging
-        # print("Received Payload:", payload)
-
         # Extract request data
         destination = payload.get('destination')
         days = int(payload.get('days', 0))
@@ -239,17 +381,14 @@ async def generate_itinerary(request, payload: dict = Body(...)):
         if not destination:
             return {"success": False, "error": "Destination is required."}
 
-        if days < 1:
-            return {"success": False, "error": "Valid number of days is required."}
-
-        # --- Prepare request data for AI service ---
+        # --- Prepare request data for Gemini service ---
         request_data = {
             "destination": destination,
             "duration": days,
             "preferences": preferences,
             "mode": mode,
         }
-        print(request_data)
+        print("Request Data:", request_data)
 
         # For custom mode, include selected places
         if mode == "custom" and custom_places:
@@ -261,24 +400,23 @@ async def generate_itinerary(request, payload: dict = Body(...)):
             if field in payload:
                 request_data[field] = payload[field]
 
-        # --- Initialize AI services ---
-        ai_service = AIItineraryService()
+        # --- Initialize services ---
+        gemini_service = GeminiItineraryService()
         data_enrichment = DataEnrichmentService()
 
         logger.info(f"Generating itinerary for {destination}, {days} days, mode: {mode}")
 
-        # --- Generate itinerary ---
-        base_itinerary = await ai_service.generate_itinerary(request_data)
-        print("Base plan:",base_itinerary)
+        # --- Generate itinerary using Gemini ---
+        base_itinerary = await gemini_service.generate_itinerary(request_data)
+        print("Base plan:", base_itinerary)
         enriched_itinerary = await data_enrichment.enrich_itinerary(base_itinerary, destination)
 
         # --- Save itinerary ---
         itinerary_doc = {
             "destination": destination,
             "days": days,
-            "mode": mode,
-            "preferences": preferences,
-            "custom_places": custom_places if mode == "custom" else [],
+            "mode": payload.get('mode', 'ai'),
+            "preferences": payload.get('preferences', []),
             "itinerary": enriched_itinerary,
             "generated_at": datetime.now(),
             "user_id": getattr(request, "user_id", None),
@@ -290,231 +428,14 @@ async def generate_itinerary(request, payload: dict = Body(...)):
         logger.info(f"Successfully generated itinerary for {destination}")
 
         # --- Return response ---
-        print("Itinerary:",enriched_itinerary)
+        print("Itinerary:", enriched_itinerary)
         return {
             "success": True,
             "itinerary": enriched_itinerary,
             "itinerary_id": str(result.inserted_id),
-            "metadata": {
-                "destination": destination,
-                "days": days,
-                "mode": mode,
-                "generated_at": datetime.now().isoformat(),
-            },
         }
 
     except Exception as e:
         logger.error(f"Itinerary generation failed: {str(e)}")
         return {"success": False, "error": f"Failed to generate itinerary: {str(e)}"}
     
-
-@tour_router.get("/itinerary/{itinerary_id}")
-def get_itinerary(request, itinerary_id: str):
-    """
-    Retrieve a specific itinerary by ID
-    """
-    try:
-        itinerary = settings.MONGO_DB.itineraries.find_one(
-            {"_id": ObjectId(itinerary_id)}
-        )
-        
-        if not itinerary:
-            return JsonResponse(
-                {"error": "Itinerary not found"}, 
-                status=404
-            )
-        
-        itinerary['_id'] = str(itinerary['_id'])
-        if isinstance(itinerary.get('generated_at'), datetime):
-            itinerary['generated_at'] = itinerary['generated_at'].isoformat()
-        
-        return {"itinerary": itinerary}
-        
-    except Exception as e:
-        logger.error(f"Failed to retrieve itinerary: {str(e)}")
-        return JsonResponse(
-            {"error": "Failed to retrieve itinerary"}, 
-            status=500
-        )
-
-@tour_router.post("/itinerary/{itinerary_id}/refine/")
-async def refine_itinerary(request, itinerary_id: str, payload: dict):
-    """
-    Refine an existing itinerary based on user feedback
-    """
-    try:
-        feedback = payload.get('feedback')
-        if not feedback:
-            return JsonResponse(
-                {"error": "Feedback is required for refinement"}, 
-                status=400
-            )
-
-        # Get original itinerary
-        original_itinerary = settings.MONGO_DB.itineraries.find_one(
-            {"_id": ObjectId(itinerary_id)}
-        )
-        
-        if not original_itinerary:
-            return JsonResponse(
-                {"error": "Original itinerary not found"}, 
-                status=404
-            )
-
-        # Initialize AI service
-        ai_service = AIItineraryService()
-        
-        # Refine itinerary
-        refined_itinerary = await ai_service.refine_itinerary(
-            original_itinerary['itinerary'],
-            feedback
-        )
-
-        # Save refined version
-        refined_doc = {
-            'original_itinerary_id': itinerary_id,
-            'destination': original_itinerary['destination'],
-            'days': original_itinerary['days'],
-            'feedback': feedback,
-            'itinerary': refined_itinerary,
-            'refined_at': datetime.now(),
-            'user_id': getattr(request, 'user_id', None)
-        }
-
-        result = settings.MONGO_DB.refined_itineraries.insert_one(refined_doc)
-        refined_doc['_id'] = str(result.inserted_id)
-
-        return {
-            "success": True,
-            "refined_itinerary": refined_itinerary,
-            "refined_itinerary_id": str(result.inserted_id)
-        }
-
-    except Exception as e:
-        logger.error(f"Itinerary refinement failed: {str(e)}")
-        return JsonResponse(
-            {"error": f"Failed to refine itinerary: {str(e)}"}, 
-            status=500
-        )
-
-@tour_router.post("/itinerary/{itinerary_id}/alternative/")
-async def generate_alternative(request, itinerary_id: str, payload: dict):
-    """
-    Generate alternative version of an itinerary
-    """
-    try:
-        alternative_type = payload.get('type', 'budget')
-        valid_types = ['budget', 'luxury', 'adventure', 'cultural', 'family', 'romantic']
-        
-        if alternative_type not in valid_types:
-            return JsonResponse(
-                {"error": f"Invalid alternative type. Must be one of: {valid_types}"}, 
-                status=400
-            )
-
-        # Get base itinerary
-        base_itinerary = settings.MONGO_DB.itineraries.find_one(
-            {"_id": ObjectId(itinerary_id)}
-        )
-        
-        if not base_itinerary:
-            return JsonResponse(
-                {"error": "Base itinerary not found"}, 
-                status=404
-            )
-
-        # Initialize AI service
-        ai_service = AIItineraryService()
-        
-        # Generate alternative
-        alternative_itinerary = await ai_service.generate_alternatives(
-            base_itinerary['itinerary'],
-            alternative_type
-        )
-
-        # Save alternative version
-        alternative_doc = {
-            'original_itinerary_id': itinerary_id,
-            'alternative_type': alternative_type,
-            'destination': base_itinerary['destination'],
-            'days': base_itinerary['days'],
-            'itinerary': alternative_itinerary,
-            'generated_at': datetime.now(),
-            'user_id': getattr(request, 'user_id', None)
-        }
-
-        result = settings.MONGO_DB.alternative_itineraries.insert_one(alternative_doc)
-        alternative_doc['_id'] = str(result.inserted_id)
-
-        return {
-            "success": True,
-            "alternative_itinerary": alternative_itinerary,
-            "alternative_itinerary_id": str(result.inserted_id),
-            "type": alternative_type
-        }
-
-    except Exception as e:
-        logger.error(f"Alternative itinerary generation failed: {str(e)}")
-        return JsonResponse(
-            {"error": f"Failed to generate alternative itinerary: {str(e)}"}, 
-            status=500
-        )
-
-@tour_router.get("/itinerary/user/{user_id}")
-def get_user_itineraries(request, user_id: str):
-    """
-    Get all itineraries for a specific user
-    """
-    try:
-        itineraries = []
-        
-        # Get original itineraries
-        for itinerary in settings.MONGO_DB.itineraries.find({"user_id": user_id}):
-            itinerary['_id'] = str(itinerary['_id'])
-            if isinstance(itinerary.get('generated_at'), datetime):
-                itinerary['generated_at'] = itinerary['generated_at'].isoformat()
-            itineraries.append({
-                **itinerary,
-                'type': 'original'
-            })
-
-        # Get refined itineraries
-        for itinerary in settings.MONGO_DB.refined_itineraries.find({"user_id": user_id}):
-            itinerary['_id'] = str(itinerary['_id'])
-            if isinstance(itinerary.get('refined_at'), datetime):
-                itinerary['refined_at'] = itinerary['refined_at'].isoformat()
-            itineraries.append({
-                **itinerary,
-                'type': 'refined'
-            })
-
-        # Get alternative itineraries
-        for itinerary in settings.MONGO_DB.alternative_itineraries.find({"user_id": user_id}):
-            itinerary['_id'] = str(itinerary['_id'])
-            if isinstance(itinerary.get('generated_at'), datetime):
-                itinerary['generated_at'] = itinerary['generated_at'].isoformat()
-            itineraries.append({
-                **itinerary,
-                'type': 'alternative'
-            })
-
-        # Sort by date (most recent first)
-        itineraries.sort(key=lambda x: x.get('generated_at') or x.get('refined_at'), reverse=True)
-
-        return {"itineraries": itineraries}
-
-    except Exception as e:
-        logger.error(f"Failed to retrieve user itineraries: {str(e)}")
-        return JsonResponse(
-            {"error": "Failed to retrieve itineraries"}, 
-            status=500
-        )
-
-@tour_router.get("/test/")
-def test_endpoint(request):
-    return {"message": "Tour router is working!"}
-
-@tour_router.get("/itinerary/test/")
-def test_itinerary(request):
-    return {"message": "Itinerary endpoint is accessible"}
-
