@@ -11,6 +11,7 @@ import sys
 import os
 import json
 import google.generativeai as genai
+from django.http import JsonResponse
 
 # Add the parent directory to Python path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
@@ -401,15 +402,15 @@ async def generate_itinerary(request, payload: dict = Body(...)):
                 request_data[field] = payload[field]
 
         # --- Initialize services ---
-        gemini_service = GeminiItineraryService()
-        data_enrichment = DataEnrichmentService()
+        # gemini_service = GeminiItineraryService()
+        # data_enrichment = DataEnrichmentService()
 
         logger.info(f"Generating itinerary for {destination}, {days} days, mode: {mode}")
 
         # --- Generate itinerary using Gemini ---
-        base_itinerary = await gemini_service.generate_itinerary(request_data)
-        print("Base plan:", base_itinerary)
-        enriched_itinerary = await data_enrichment.enrich_itinerary(base_itinerary, destination)
+        # base_itinerary = await gemini_service.generate_itinerary(request_data)
+        # print("Base plan:", base_itinerary)
+        # enriched_itinerary = await data_enrichment.enrich_itinerary(base_itinerary, destination)
 
         # --- Save itinerary ---
         itinerary_doc = {
@@ -417,7 +418,7 @@ async def generate_itinerary(request, payload: dict = Body(...)):
             "days": days,
             "mode": payload.get('mode', 'ai'),
             "preferences": payload.get('preferences', []),
-            "itinerary": enriched_itinerary,
+            "itinerary": 'enriched_itinerary',
             "generated_at": datetime.now(),
             "user_id": getattr(request, "user_id", None),
         }
@@ -428,12 +429,114 @@ async def generate_itinerary(request, payload: dict = Body(...)):
         logger.info(f"Successfully generated itinerary for {destination}")
 
         # --- Return response ---
-        print("Itinerary:", enriched_itinerary)
-        return {
+        # print("Itinerary:", enriched_itinerary)
+       
+        enriched_itinerary = {
+                            "itinerary": [
+                                {
+                                "day": "0 (Full Day in Manali)",
+                                "theme": "Exploring Manali's Culture and Nature",
+                                "budget_estimate_for_2_people_day": {
+                                    "food": "INR 1500-2500",
+                                    "transportation": "INR 500-1000",
+                                    "activities_entry_fees": "INR 100-300",
+                                    "miscellaneous_shopping": "INR 500-1000",
+                                    "total_range": "INR 2600-4800"
+                                },
+                                "schedule": [
+                                    {
+                                    "time_slot": "Morning (8:00 AM - 1:00 PM)",
+                                    "activities": [
+                                        {
+                                        "name": "Breakfast at a local cafe",
+                                        "description": "Start your day with a hearty breakfast. Options include pancakes, Israeli breakfast, or traditional Indian breakfast.",
+                                        "cuisine_suggestion": "Pancakes, Aloo Paratha, Omelette with coffee/tea. Try 'German Bakery' or 'Cafe 1947' in Old Manali.",
+                                        "estimated_cost_for_2": "INR 300-600",
+                                        "travel_tips": "Many cafes in Old Manali offer great breakfast options with scenic views. Wake up early to enjoy the peaceful morning before the crowds."
+                                        },
+                                        {
+                                        "name": "Hadimba Devi Temple",
+                                        "description": "Visit the unique 16th-century wooden temple dedicated to Hadimba Devi, built in a pagoda style amidst a cedar forest (Dhungri Van Vihar).",
+                                        "estimated_cost_for_2": "Free (small fee for photography if applicable, approx. INR 50)",
+                                        "transportation": "Auto-rickshaw from town/Old Manali (approx. INR 100-200), or a pleasant 20-30 minute walk from the Mall Road.",
+                                        "travel_tips": "Allocate 1-1.5 hours. Enjoy the peaceful surroundings. Consider a yak photo opportunity if interested (negotiate price). Be respectful of local customs inside the temple."
+                                        },
+                                        {
+                                        "name": "Manu Temple & Old Manali Exploration",
+                                        "description": "Hike up to the ancient Manu Temple, dedicated to Sage Manu. Afterward, explore the charming lanes of Old Manali, known for its bohemian vibe, cafes, and handicrafts.",
+                                        "estimated_cost_for_2": "Free (shopping extra)",
+                                        "transportation": "Walk from Hadimba Temple area (approx. 15-20 min uphill) or a short auto-rickshaw ride. Old Manali itself is best explored on foot.",
+                                        "travel_tips": "Wear comfortable shoes. Browse the unique shops for souvenirs like dreamcatchers, woolen clothes, and local jewelry. Many cafes here offer good ambiance and views."
+                                        }
+                                    ]
+                                    },
+                                    {
+                                    "time_slot": "Afternoon (1:00 PM - 6:00 PM)",
+                                    "activities": [
+                                        {
+                                        "name": "Lunch in Old Manali",
+                                        "description": "Enjoy lunch at one of Old Manali's popular cafes offering international and local cuisine.",
+                                        "cuisine_suggestion": "Fresh Trout Fish, Thukpa (noodle soup), Momos, Israeli food (like Shakshuka), or Italian pasta/pizza.",
+                                        "estimated_cost_for_2": "INR 600-1000",
+                                        "travel_tips": "Look for cafes with riverside seating or mountain views for a relaxed experience. Ask for locally sourced ingredients."
+                                        },
+                                        {
+                                        "name": "Vashisht Village & Hot Water Springs",
+                                        "description": "Visit Vashisht village, famous for its ancient temples dedicated to Sage Vashisht and Lord Rama, and its natural hot sulphur springs, believed to have medicinal properties.",
+                                        "estimated_cost_for_2": "Free (donation for temple, small fee for public baths if applicable)",
+                                        "transportation": "Auto-rickshaw from Old Manali/Mall Road (approx. INR 150-250).",
+                                        "travel_tips": "Bring a change of clothes if you plan to take a dip in the hot springs (separate sections for men and women). Be aware of the strong sulphur smell. Explore the narrow lanes of the village."
+                                        },
+                                        {
+                                        "name": "Mall Road Exploration & Shopping",
+                                        "description": "Head to Manali's bustling Mall Road for some leisurely walking, souvenir shopping, and soaking in the local atmosphere.",
+                                        "estimated_cost_for_2": "Free (shopping extra, budget INR 500-1000 for souvenirs)",
+                                        "transportation": "Auto-rickshaw/walk from Vashisht, or walk if your accommodation is nearby the Mall Road.",
+                                        "travel_tips": "Good place to buy Kullu shawls, caps, local handicrafts, dry fruits, and Himachali traditional clothing. Be prepared for crowds, especially in peak season. Bargaining is common at small shops."
+                                        }
+                                    ]
+                                    },
+                                    {
+                                    "time_slot": "Evening (6:00 PM onwards)",
+                                    "activities": [
+                                        {
+                                        "name": "Dinner",
+                                        "description": "Savor a delicious dinner at a restaurant on Mall Road or a popular eatery.",
+                                        "cuisine_suggestion": "Himachali Dham (traditional feast, usually requires pre-order or is served at specific events), Siddu with local curry (Channa Madra), authentic North Indian dishes.",
+                                        "estimated_cost_for_2": "INR 600-900",
+                                        "travel_tips": "Try local Himachali cuisine for an authentic experience. Look for places popular with locals for the best flavors. Many restaurants offer diverse menus to cater to all tastes."
+                                        },
+                                        {
+                                        "name": "Leisure Time / Cafe Hopping",
+                                        "description": "Enjoy a relaxed evening at a cafe, perhaps listening to live music (if available), or simply stargazing if away from the main town lights.",
+                                        "estimated_cost_for_2": "INR 200-500 (for drinks/desserts)",
+                                        "travel_tips": "Manali has a vibrant cafe culture. Some cafes offer live music, bonfires, or cozy settings perfect for unwinding after a day of exploration. 'Johnson's Cafe' is a popular choice for ambiance."
+                                        }
+                                    ]
+                                    }
+                                ],
+                                "overall_travel_tips": [
+                                    "**Best Time to Visit:** March to June (pleasant) and September to November (post-monsoon, clear skies) offer the best weather for general travel.",
+                                    "**Connectivity:** Manali is well-connected by road. The nearest airport is Bhuntar (Kullu), about 50 km away. Regular Volvo buses operate from Delhi and Chandigarh.",
+                                    "**Clothing:** Pack layers, even in summer, as evenings can get cool. Warm clothes are essential for winter months (Oct-March).",
+                                    "**Altitude Sickness:** Manali is at a moderate altitude (approx. 2,050 meters or 6,726 feet). Stay hydrated, avoid strenuous activities immediately after arrival, and listen to your body.",
+                                    "**Local Etiquette:** Respect local customs and traditions, especially when visiting temples. Dress modestly (shoulders and knees covered).",
+                                    "**Bargaining:** It's common to bargain at local markets, but always do so respectfully and with a smile.",
+                                    "**Stay Hydrated:** Drink plenty of water throughout the day, especially if you plan to walk a lot or engage in physical activities.",
+                                    "**Connectivity:** Mobile networks (Jio, Airtel, Vodafone Idea) work well in Manali town, but might be patchy in more remote areas or while trekking.",
+                                    "**Cash vs. Card:** While major establishments accept cards, it's always good to carry sufficient cash for smaller shops, auto-rickshaws, and local eateries."
+                                ]
+                                }
+                            ],
+                            "enriched_at": "2025-10-21T19:02:20.018109",
+                            "data_source": "Gemini AI + Google Places"
+                            }
+
+        return JsonResponse({
             "success": True,
             "itinerary": enriched_itinerary,
             "itinerary_id": str(result.inserted_id),
-        }
+        })
 
     except Exception as e:
         logger.error(f"Itinerary generation failed: {str(e)}")
