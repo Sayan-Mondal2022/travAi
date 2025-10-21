@@ -108,7 +108,7 @@ export default function DestinationStep() {
             Popular destinations:
           </p>
           <div className="flex flex-wrap justify-center gap-2">
-            {["Paris", "Bali", "Tokyo", "New York", "London"].map((city) => (
+            {["Goa", "Manali", "Shimla", "Darjeeling", "Rishikesh"].map((city) => (
               <button
                 key={city}
                 type="button"

@@ -94,14 +94,18 @@ export default function GroupDetailsStep() {
     return !["solo", "duo", "couple"].includes(travelType);
   };
 
+  // Fixed: Show children and elderly ONLY for family travel type
   const shouldShowChildrenElderly = () => {
-    return !["friends", "business"].includes(travelType);
+    return travelType === "family";
+  };
+
+  // Fixed: Show pets ONLY for solo, duo, or family travel types
+  const shouldShowPets = () => {
+    return ["solo", "duo", "family"].includes(travelType);
   };
 
   const shouldDisableChildrenElderly = () => {
-    return ["solo", "duo", "couple", "friends", "business"].includes(
-      travelType
-    );
+    return !shouldShowChildrenElderly();
   };
 
   const handleSubmit = (e) => {
@@ -133,7 +137,7 @@ export default function GroupDetailsStep() {
         {/* Back Button */}
         <button
           onClick={handleBack}
-          className="absolute left-4 top-4 p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-all duration-200"
+          className="absolute left-4 top-4 p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-all duration-200 cursor-pointer"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
@@ -165,6 +169,16 @@ export default function GroupDetailsStep() {
             <div className="mt-2 p-3 bg-green-50 rounded-2xl transform transition-all duration-300 scale-95 hover:scale-100">
               <p className="text-sm text-green-700">
                 ℹ️ Children and elderly options hidden for{" "}
+                <span className="font-semibold capitalize">{travelType}</span>{" "}
+                travel
+              </p>
+            </div>
+          )}
+
+          {!shouldShowPets() && travelType && (
+            <div className="mt-2 p-3 bg-orange-50 rounded-2xl transform transition-all duration-300 scale-95 hover:scale-100">
+              <p className="text-sm text-orange-700">
+                ℹ️ Pets option hidden for{" "}
                 <span className="font-semibold capitalize">{travelType}</span>{" "}
                 travel
               </p>
@@ -272,27 +286,11 @@ export default function GroupDetailsStep() {
                   <span className="text-sm text-gray-500">Under 12 years</span>
                 </div>
               </label>
-
-              <label className="flex items-center p-4 border-2 border-gray-200 rounded-xl hover:border-blue-300 cursor-pointer transition-all duration-300 transform hover:scale-[1.02] bg-white">
-                <input
-                  type="checkbox"
-                  name="has_pets"
-                  checked={formData.has_pets}
-                  onChange={handleInputChange}
-                  className="w-5 h-5 text-blue-600 mr-3 transition-all duration-200"
-                />
-                <div>
-                  <span className="block font-medium text-gray-900">Pets</span>
-                  <span className="text-sm text-gray-500">
-                    Bringing furry friends
-                  </span>
-                </div>
-              </label>
             </div>
           )}
 
-          {/* Pets - Always shown since pets can be in any group */}
-          {!shouldShowChildrenElderly() && (
+          {/* Pets - Conditionally shown based on travel type */}
+          {shouldShowPets() && (
             <div className="grid grid-cols-1 gap-4">
               <label className="flex items-center p-4 border-2 border-gray-200 rounded-xl hover:border-blue-300 cursor-pointer transition-all duration-300 transform hover:scale-[1.02] bg-white">
                 <input
@@ -350,8 +348,8 @@ export default function GroupDetailsStep() {
             </div>
           )}
 
-          {/* Conditional Fields for Pets - Always shown if has_pets is true */}
-          {formData.has_pets && (
+          {/* Conditional Fields for Pets - Only shown if pets are allowed and has_pets is true */}
+          {shouldShowPets() && formData.has_pets && (
             <div className="bg-green-50 rounded-xl p-6 border border-green-200 transform transition-all duration-300 hover:scale-[1.02]">
               <label className="block text-sm font-medium text-green-700 mb-3">
                 <Dog className="w-5 h-5 inline mr-2 transition-transform duration-300 hover:scale-110" />

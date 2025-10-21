@@ -18,7 +18,7 @@ export default function WhyChooseCard({ title, description, image, reverse = fal
         <img
           src={image}
           alt={title}
-          className="w-full h-full object-cover rounded-lg"
+          className="w-full h-full object-cover rounded-3xl hover:scale-105 transition-transform duration-300 cursor-pointer"
         />
       </div>
 
