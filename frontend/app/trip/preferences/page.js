@@ -305,23 +305,47 @@ export default function PreferencesStep() {
               </span>{" "}
               What are you interested in?
             </label>
-            <div className="grid grid-cols-2 gap-2">
-              {TRAVEL_PREFERENCES.map((pref) => (
-                <label
-                  key={pref}
-                  className="flex items-center p-3 border border-gray-200 rounded-2xl hover:bg-gray-50 cursor-pointer transition-all duration-200 transform hover:scale-[1.02]"
-                >
-                  <input
-                    type="checkbox"
-                    name="travel_preferences"
-                    value={pref}
-                    checked={formData.travel_preferences.includes(pref)}
-                    onChange={handleInputChange}
-                    className="w-4 h-4 text-blue-600 mr-2 transition-all duration-200"
-                  />
-                  <span className="text-sm text-gray-700">{pref}</span>
-                </label>
-              ))}
+            <div className="grid grid-cols-2 gap-3">
+              {TRAVEL_PREFERENCES.map((pref) => {
+                // Map preferences to relevant emojis/images
+                const preferenceImages = {
+                  Adventure: "🧗‍♂️",
+                  Relaxation: "🏖️",
+                  Cultural: "🎭",
+                  Food: "🍕",
+                  Shopping: "🛍️",
+                  Nature: "🌲",
+                  Historical: "🏛️",
+                  Nightlife: "🌃",
+                  "Local Experiences": "🏘️",
+                };
+
+                return (
+                  <label
+                    key={pref}
+                    className={`flex items-center p-3 border-2 rounded-2xl cursor-pointer transition-all duration-300 transform hover:scale-[1.02] ${
+                      formData.travel_preferences.includes(pref)
+                        ? "border-blue-500 bg-blue-50 shadow-md"
+                        : "border-gray-200 hover:border-blue-300 bg-white"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      name="travel_preferences"
+                      value={pref}
+                      checked={formData.travel_preferences.includes(pref)}
+                      onChange={handleInputChange}
+                      className="w-4 h-4 text-blue-600 mr-3 transition-all duration-200"
+                    />
+                    <span className="text-2xl mr-3 transition-transform duration-300 hover:scale-110">
+                      {preferenceImages[pref]}
+                    </span>
+                    <span className="text-sm text-gray-700 font-medium">
+                      {pref}
+                    </span>
+                  </label>
+                );
+              })}
             </div>
           </div>
 
