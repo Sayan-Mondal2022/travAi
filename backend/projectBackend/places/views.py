@@ -7,8 +7,10 @@ from ninja import Router
 import googlemaps
 from datetime import datetime, date
 from bson import ObjectId
-# from ML_models.models import itinerary_model
+from django.http import JsonResponse
+import logging
 
+logger = logging.getLogger(__name__)
 trip_router = Router()
 tour_router = Router()
 
@@ -207,6 +209,6 @@ def tourist_places(request, destination: str):
         return {"error": f"Internal server error: {str(e)}", "status": 500}
     
 
-@tour_router.get("/itinerary/generate/")
+@tour_router.post("/itinerary/generate/")
 def generate_itinerary(request):
     pass

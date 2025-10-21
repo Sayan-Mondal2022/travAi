@@ -2,8 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/router";
-// Assuming you have an apiPost function similar to apiGet
+import { useRouter } from "next/navigation";
 import { apiPost } from "../../../lib/api";
 import {
   Loader,
@@ -60,6 +59,7 @@ export default function ItineraryPage() {
 
         // 3. Make the API call to the backend
         // This endpoint will contain the logic to call the LLM
+        console.log(payload.places);
         const response = await apiPost("/api/tour/itinerary/generate", payload);
 
         if (!response || !response.itinerary) {
