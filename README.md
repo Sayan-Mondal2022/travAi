@@ -10,8 +10,8 @@
 - **Backend:** Django (*Python*)  
 - **Databases:** MySQL (*User Data*), MongoDB (*Trip Data*), Redis (*Caching & Token Management*)  
 - **APIs & AI Services:** Google Places API, Google Weather API, Google Gemini API, Hugging Face API, Google Dialogflow  
-- **Deployment & DevOps:** Docker, Kubernetes (*Cloud Deployment*)  
 - **Version Control:** Git & GitHub
+- **Deployment & DevOps:** Docker, Kubernetes (*Cloud Deployment*)  
 
 
 ---
