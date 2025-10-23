@@ -43,8 +43,8 @@ export default function ItineraryPage() {
 
         const payload = {
           destination: savedTrip.to_location,
-          days: savedTrip.days,
-          preferences: savedTrip.preferences || [],
+          days: savedTrip.duration_days,
+          preferences: savedTrip.travel_preferences || [],
           mode: mode,
         };
 
@@ -69,7 +69,11 @@ export default function ItineraryPage() {
 
         // ✅ Extract itinerary from the correct structure
         const itineraryData = response?.itinerary;
-        if (!itineraryData || !itineraryData.itinerary || !Array.isArray(itineraryData.itinerary)) {
+        if (
+          !itineraryData ||
+          !itineraryData.itinerary ||
+          !Array.isArray(itineraryData.itinerary)
+        ) {
           throw new Error("Invalid itinerary data received from the server.");
         }
 
@@ -94,7 +98,8 @@ export default function ItineraryPage() {
             Generating Your Itinerary...
           </h1>
           <p className="mt-2 text-gray-600">
-            Our AI is crafting the perfect trip for you. This might take a moment.
+            Our AI is crafting the perfect trip for you. This might take a
+            moment.
           </p>
         </div>
       </div>
@@ -114,7 +119,7 @@ export default function ItineraryPage() {
           </h2>
           <p className="text-gray-600 mb-6">{error}</p>
           <button
-            onClick={() => router.push("/trip/places")}
+            onClick={() => router.push("/trip/itinerary")}
             className="bg-blue-600 text-white py-2 px-6 rounded-lg hover:bg-blue-700 font-semibold"
           >
             Go Back
@@ -125,7 +130,8 @@ export default function ItineraryPage() {
   }
 
   // Get the first day itinerary (since your response has array with one day)
-  const dayItinerary = itinerary?.itinerary?.[0];
+  const itineraryDays = itinerary?.itinerary || [];
+  const firstDay = itineraryDays[0];
 
   // ✅ Success UI
   return (
@@ -134,171 +140,94 @@ export default function ItineraryPage() {
         {/* Header */}
         <div className="bg-white rounded-2xl shadow-lg p-6 mb-8 text-center">
           <h1 className="text-4xl font-extrabold text-gray-900">
-            {`Your Trip to ${tripData?.to_location}`}
+            Your Trip to {tripData?.to_location}
           </h1>
           <p className="mt-2 text-lg text-gray-600">
-            {dayItinerary?.theme || "Here's your personalized day plan. Enjoy your adventure!"}
+            {firstDay?.theme || "Here's your personalized itinerary!"}
           </p>
-          <div className="mt-4 text-sm text-gray-500">
-            <p>Generated on {new Date(itinerary?.enriched_at).toLocaleDateString()} • Source: {itinerary?.data_source}</p>
-          </div>
+          {itinerary?.overall_summary && (
+            <p className="mt-2 text-gray-700">{itinerary.overall_summary}</p>
+          )}
         </div>
 
-        {/* Budget Summary */}
-        {dayItinerary?.budget_estimate_for_2_people_day && (
+        {/* Budget Section */}
+        {firstDay?.budget && (
           <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center">
               <DollarSign className="w-6 h-6 mr-2 text-green-600" />
               Budget Estimate (for 2 people)
             </h2>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-              <div className="text-center p-3 bg-green-50 rounded-lg">
-                <Utensils className="w-6 h-6 mx-auto text-green-600 mb-1" />
-                <p className="text-sm text-gray-600">Food</p>
-                <p className="font-semibold text-gray-900">{dayItinerary.budget_estimate_for_2_people_day.food}</p>
-              </div>
-              <div className="text-center p-3 bg-blue-50 rounded-lg">
-                <Activity className="w-6 h-6 mx-auto text-blue-600 mb-1" />
-                <p className="text-sm text-gray-600">Transport</p>
-                <p className="font-semibold text-gray-900">{dayItinerary.budget_estimate_for_2_people_day.transportation}</p>
-              </div>
-              <div className="text-center p-3 bg-purple-50 rounded-lg">
-                <MapPin className="w-6 h-6 mx-auto text-purple-600 mb-1" />
-                <p className="text-sm text-gray-600">Activities</p>
-                <p className="font-semibold text-gray-900">{dayItinerary.budget_estimate_for_2_people_day.activities_entry_fees}</p>
-              </div>
-              <div className="text-center p-3 bg-yellow-50 rounded-lg">
-                <ShoppingBag className="w-6 h-6 mx-auto text-yellow-600 mb-1" />
-                <p className="text-sm text-gray-600">Shopping</p>
-                <p className="font-semibold text-gray-900">{dayItinerary.budget_estimate_for_2_people_day.miscellaneous_shopping}</p>
-              </div>
-              <div className="text-center p-3 bg-red-50 rounded-lg md:col-span-3 lg:col-span-1">
-                <DollarSign className="w-6 h-6 mx-auto text-red-600 mb-1" />
-                <p className="text-sm text-gray-600">Total Range</p>
-                <p className="font-semibold text-gray-900">{dayItinerary.budget_estimate_for_2_people_day.total_range}</p>
-              </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {Object.entries(firstDay.budget).map(
+                ([key, value]) => (
+                  <div
+                    key={key}
+                    className="text-center p-3 bg-green-50 rounded-lg shadow-sm"
+                  >
+                    <p className="text-sm text-gray-600 capitalize">{key.replace(/_/g, " ")}</p>
+                    <p className="font-semibold text-gray-900">{value}</p>
+                  </div>
+                )
+              )}
             </div>
           </div>
         )}
 
-        {/* Daily Schedule Timeline */}
-        <div className="space-y-8">
-          {dayItinerary?.schedule?.map((slot, index) => (
-            <div key={index} className="flex items-start">
-              {/* Time Marker */}
-              <div className="flex flex-col items-center mr-4">
-                <div className="flex items-center justify-center w-12 h-12 bg-blue-600 text-white rounded-full font-bold text-lg">
-                  {index + 1}
+        {/* Schedule Section */}
+        {firstDay?.schedule && (
+          <div className="space-y-6">
+            {Object.entries(firstDay.schedule).map(([timeSlot, activities], index) => (
+              <div key={index} className="bg-white rounded-2xl shadow-lg p-6">
+                <div className="flex items-center mb-4">
+                  {timeSlot.toLowerCase().includes("evening") ? (
+                    <Moon className="w-6 h-6 text-indigo-500 mr-2" />
+                  ) : (
+                    <Sun className="w-6 h-6 text-yellow-500 mr-2" />
+                  )}
+                  <h2 className="text-xl font-semibold text-gray-800 capitalize">{timeSlot}</h2>
                 </div>
-                {index !== dayItinerary.schedule.length - 1 && (
-                  <div className="w-px h-full bg-gray-300 mt-2"></div>
-                )}
-              </div>
-
-              {/* Time Slot Card */}
-              <div className="bg-white rounded-2xl shadow-lg p-6 w-full">
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-xl font-bold text-gray-800">
-                    {slot.time_slot}
-                  </h2>
-                  <span className="bg-blue-100 text-blue-800 py-1 px-3 rounded-full text-sm font-medium">
-                    {slot.activities?.length || 0} Activities
-                  </span>
-                </div>
-
-                <div className="space-y-6">
-                  {slot.activities?.map((activity, i) => (
-                    <div
-                      key={i}
-                      className="flex items-start p-4 border rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"
-                    >
-                      <div className="mr-4 pt-1">
-                        {slot.time_slot.toLowerCase().includes("evening") ? (
-                          <Moon className="w-6 h-6 text-indigo-500" />
-                        ) : (
-                          <Sun className="w-6 h-6 text-yellow-500" />
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex justify-between items-start mb-2">
-                          <h3 className="font-semibold text-gray-900 text-lg">
-                            {activity.name}
-                          </h3>
-                          {activity.estimated_cost_for_2 && (
-                            <p className="text-sm font-medium text-green-600 bg-green-50 px-2 py-1 rounded">
-                              {activity.estimated_cost_for_2}
-                            </p>
-                          )}
-                        </div>
-                        
-                        <p className="text-gray-600 mb-3">{activity.description}</p>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                          {activity.cuisine_suggestion && (
-                            <div className="flex items-start">
-                              <Utensils className="w-4 h-4 mr-2 text-orange-500 mt-0.5 flex-shrink-0" />
-                              <div>
-                                <span className="font-medium text-gray-700">Food:</span>
-                                <span className="text-gray-600 ml-1">{activity.cuisine_suggestion}</span>
-                              </div>
-                            </div>
-                          )}
-                          
-                          {activity.transportation && (
-                            <div className="flex items-start">
-                              <Activity className="w-4 h-4 mr-2 text-blue-500 mt-0.5 flex-shrink-0" />
-                              <div>
-                                <span className="font-medium text-gray-700">Transport:</span>
-                                <span className="text-gray-600 ml-1">{activity.transportation}</span>
-                              </div>
-                            </div>
-                          )}
-                          
-                          {activity.travel_tips && (
-                            <div className="md:col-span-2 flex items-start">
-                              <AlertTriangle className="w-4 h-4 mr-2 text-yellow-500 mt-0.5 flex-shrink-0" />
-                              <div>
-                                <span className="font-medium text-gray-700">Tips:</span>
-                                <span className="text-gray-600 ml-1">{activity.travel_tips}</span>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
+                <ul className="list-disc pl-6 text-gray-700 space-y-2">
+                  {activities.map((activity, i) => (
+                    <li key={i}>{activity}</li>
                   ))}
-                </div>
+                </ul>
               </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Travel Tips & Recommendations */}
-        {dayItinerary?.overall_travel_tips && (
-          <div className="mt-12 bg-white rounded-2xl shadow-lg p-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">
-              Travel Tips & Recommendations
-            </h2>
-            <div className="grid gap-4">
-              {dayItinerary.overall_travel_tips.map((tip, i) => (
-                <div key={i} className="flex items-start p-3 bg-blue-50 rounded-lg">
-                  <AlertTriangle className="w-5 h-5 text-blue-600 mr-3 mt-0.5 flex-shrink-0" />
-                  <p className="text-gray-700">
-                    {tip.replace(/\*\*(.*?)\*\*/g, '$1')} {/* Remove markdown bold */}
-                  </p>
-                </div>
-              ))}
-            </div>
+            ))}
           </div>
         )}
 
-        {/* Footer */}
-        <div className="mt-8 text-center text-sm text-gray-500">
-          <p>Itinerary generated by {itinerary?.data_source} on {new Date(itinerary?.enriched_at).toLocaleDateString()}</p>
-          {itinerary?.itinerary_id && (
-            <p className="mt-1">Reference ID: {itinerary.itinerary_id}</p>
-          )}
-        </div>
+        {/* Cuisine & Travel Tips */}
+        {(firstDay?.local_cuisine_recommendations || firstDay?.travel_tips) && (
+          <div className="mt-12 bg-white rounded-2xl shadow-lg p-6">
+            {firstDay?.local_cuisine_recommendations && (
+              <>
+                <h2 className="text-2xl font-bold text-gray-900 mb-3 flex items-center">
+                  <Utensils className="w-6 h-6 mr-2 text-orange-500" />
+                  Local Cuisine
+                </h2>
+                <ul className="list-disc pl-6 text-gray-700 mb-6">
+                  {firstDay.local_cuisine_recommendations.map((dish, i) => (
+                    <li key={i}>{dish}</li>
+                  ))}
+                </ul>
+              </>
+            )}
+
+            {firstDay?.travel_tips && (
+              <>
+                <h2 className="text-2xl font-bold text-gray-900 mb-3 flex items-center">
+                  <AlertTriangle className="w-6 h-6 mr-2 text-blue-600" />
+                  Travel Tips
+                </h2>
+                <ul className="list-disc pl-6 text-gray-700">
+                  {firstDay.travel_tips.map((tip, i) => (
+                    <li key={i}>{tip}</li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
