@@ -86,14 +86,12 @@ export default function PlacesSelectionPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[var(--bg)] flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-2xl h-12 w-12 border-b-2 border-[var(--primary)] mx-auto">
-            <Loader className="w-6 h-6 mx-auto mt-2 text-[var(--primary)]" />
-          </div>
-          <p className="mt-4 text-[var(--text-secondary)]">
-            Discovering amazing places for you...
-          </p>
+          <Loader className="w-12 h-12 text-blue-600 animate-spin mx-auto" />
+          <h1 className="mt-4 text-2xl font-bold text-gray-800">
+            Discovering Amazing places for you...
+          </h1>
         </div>
       </div>
     );
