@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   Cloud,
   Route,
-  DollarSign,
+  IndianRupee,
   Bike,
   Car,
   Plane,
@@ -289,7 +289,7 @@ export default function PreferencesStep() {
                       {transport.label}
                     </span>
                     <span className="text-xs text-gray-500 mt-1">
-                      Min: ${transport.minBudget.toLocaleString()}
+                      Min: <IndianRupee className="w-3 h-3 inline  transition-transform duration-300 hover:scale-110"/>{transport.minBudget.toLocaleString()}
                     </span>
                   </label>
                 );
@@ -352,11 +352,11 @@ export default function PreferencesStep() {
           {/* Budget */}
           <div className="bg-blue-50 rounded-2xl p-6 transform transition-all duration-300 hover:scale-[1.02]">
             <label className="block text-sm font-medium text-blue-700 mb-4">
-              <DollarSign className="w-5 h-5 inline mr-2 transition-transform duration-300 hover:scale-110" />
-              What&apos;s your budget? (USD)
+              <IndianRupee className="w-5 h-5 inline mr-2 transition-transform duration-300 hover:scale-110" />
+              What&apos;s your budget? (INR)
               {formData.mode_of_transport && (
                 <span className="text-blue-600 ml-2 text-xs">
-                  (Minimum: ${currentBudgetRange.min.toLocaleString()} for{" "}
+                  (Minimum: <IndianRupee className="w-3 h-3 inline  transition-transform duration-300 hover:scale-110"/>{currentBudgetRange.min.toLocaleString()} for{" "}
                   {getCurrentTransportOption()?.label})
                 </span>
               )}
@@ -374,14 +374,14 @@ export default function PreferencesStep() {
               />
               <div className="text-center">
                 <span className="text-3xl font-bold text-blue-600 transition-all duration-300">
-                  ${Number(formData.budget).toLocaleString()}
+                  <IndianRupee className="w-8 h-8 inline  transition-transform duration-300 hover:scale-110"/>{Number(formData.budget).toLocaleString()}
                 </span>
                 <div className="flex justify-between text-xs text-blue-500 mt-2">
-                  <span>${currentBudgetRange.min.toLocaleString()}</span>
+                  <span><IndianRupee className="w-4 h-4 inline  transition-transform duration-300 hover:scale-110"/>{currentBudgetRange.min.toLocaleString()}</span>
                   <span className="text-blue-700 font-medium">
-                    Selected: ${Number(formData.budget).toLocaleString()}
+                    Selected: <IndianRupee className="w-3 h-3 inline  transition-transform duration-300 hover:scale-110"/>{Number(formData.budget).toLocaleString()}
                   </span>
-                  <span>${currentBudgetRange.max.toLocaleString()}</span>
+                  <span><IndianRupee className="w-4 h-4 inline  transition-transform duration-300 hover:scale-110"/>{currentBudgetRange.max.toLocaleString()}</span>
                 </div>
               </div>
             </div>
