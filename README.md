@@ -10,9 +10,8 @@
 - **Backend:** Django (*Python*)  
 - **Databases:** MySQL (*User Data*), MongoDB (*Trip Data*), Redis (*Caching & Token Management*)  
 - **APIs & AI Services:** Google Places API, Google Weather API, Google Gemini API, Hugging Face API, Google Dialogflow  
-- **Version Control:** Git & GitHub
 - **Deployment & DevOps:** Docker, Kubernetes (*Cloud Deployment*)  
-
+- **Version Control:** Git & GitHub
 
 ---
 
@@ -32,11 +31,14 @@
 - Ngrok (To expose Local Servers, mainly using for Network Tunneling)
 - Dialogflow (To build a Conversational UI like a Chatbot)
 
-1. **Clone the repository**
+1. **Clone or Pull the repository**
 
 ```bash
 git clone https://github.com/your-username/travAi.git
 cd travAi
+
+# If Cloned or the Project already exist then
+git pull
 ```
 
 2. **Install dependencies for Frontend**
