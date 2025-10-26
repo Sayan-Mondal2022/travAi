@@ -12,6 +12,9 @@ import {
   Plane,
   Train,
   ArrowLeft,
+  Star,
+  Crown,
+  Wallet,
 } from "lucide-react";
 import { apiPost } from "@/lib/api";
 
@@ -60,6 +63,39 @@ const TRANSPORT_OPTIONS = [
   },
 ];
 
+const EXPERIENCE_OPTIONS = [
+  {
+    id: "budget",
+    label: "Budget",
+    description: "Affordable & economical",
+    icon: Wallet,
+    color: "text-green-600",
+    bgColor: "bg-green-50",
+    borderColor: "border-green-200",
+    multiplier: 0.7,
+  },
+  {
+    id: "moderate",
+    label: "Moderate",
+    description: "Comfortable & balanced",
+    icon: Star,
+    color: "text-blue-600",
+    bgColor: "bg-blue-50",
+    borderColor: "border-blue-200",
+    multiplier: 1,
+  },
+  {
+    id: "luxury",
+    label: "Luxury",
+    description: "Premium & luxurious",
+    icon: Crown,
+    color: "text-purple-600",
+    bgColor: "bg-purple-50",
+    borderColor: "border-purple-200",
+    multiplier: 1.5,
+  },
+];
+
 const TRAVEL_PREFERENCES = [
   "Adventure",
   "Relaxation",
@@ -87,12 +123,14 @@ export default function PreferencesStep() {
   const [formData, setFormData] = useState({
     weather_preference: "",
     mode_of_transport: "",
+    experience_type: "",
     travel_preferences: [],
     budget: BUDGET_RANGES.default.min,
   });
   const [currentBudgetRange, setCurrentBudgetRange] = useState(
     BUDGET_RANGES.default
   );
+  const [suggestedBudget, setSuggestedBudget] = useState(0);
 
   // This hook loads data when the component first mounts
   useEffect(() => {
@@ -103,9 +141,9 @@ export default function PreferencesStep() {
 
       // Set initial budget range based on saved transport mode
       if (parsedData.mode_of_transport) {
-        setCurrentBudgetRange(
-          BUDGET_RANGES[parsedData.mode_of_transport] || BUDGET_RANGES.default
-        );
+        const newRange =
+          BUDGET_RANGES[parsedData.mode_of_transport] || BUDGET_RANGES.default;
+        setCurrentBudgetRange(newRange);
       }
     }
   }, []);
@@ -117,22 +155,34 @@ export default function PreferencesStep() {
     localStorage.setItem("tripData", JSON.stringify(updatedTripData));
   }, [formData]);
 
-  // Update budget range when transport mode changes
-  useEffect(() => {
-    if (formData.mode_of_transport) {
-      const newRange =
-        BUDGET_RANGES[formData.mode_of_transport] || BUDGET_RANGES.default;
-      setCurrentBudgetRange(newRange);
+ // Update budget range and calculate suggested budget when transport mode or experience type changes
+useEffect(() => {
+  if (formData.mode_of_transport) {
+    const newRange =
+      BUDGET_RANGES[formData.mode_of_transport] || BUDGET_RANGES.default;
+    setCurrentBudgetRange(newRange);
 
-      // Adjust budget if it's below the new minimum
-      if (formData.budget < newRange.min) {
-        setFormData((prev) => ({
-          ...prev,
-          budget: newRange.min,
-        }));
-      }
+    // Calculate suggested budget based on transport and experience type
+    let baseBudget = newRange.min;
+    if (formData.experience_type) {
+      const experience = EXPERIENCE_OPTIONS.find(
+        (exp) => exp.id === formData.experience_type
+      );
+      baseBudget = Math.round(newRange.min * experience.multiplier);
     }
-  }, [formData.mode_of_transport]);
+
+    setSuggestedBudget(baseBudget);
+
+    // Always update budget to the suggested amount when experience type changes
+    // or when transport mode changes (if experience type is already selected)
+    if (formData.experience_type || formData.mode_of_transport) {
+      setFormData((prev) => ({
+        ...prev,
+        budget: baseBudget,
+      }));
+    }
+  }
+}, [formData.mode_of_transport, formData.experience_type]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -177,6 +227,13 @@ export default function PreferencesStep() {
     }));
   };
 
+  const handleExperienceChange = (experienceId) => {
+    setFormData((prev) => ({
+      ...prev,
+      experience_type: experienceId,
+    }));
+  };
+
   const handleBack = () => {
     router.back();
   };
@@ -188,8 +245,15 @@ export default function PreferencesStep() {
     );
   };
 
+  // Get current experience option for display
+  const getCurrentExperienceOption = () => {
+    return EXPERIENCE_OPTIONS.find(
+      (option) => option.id === formData.experience_type
+    );
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-100 flex items-center justify-center p-4 transition-all duration-500">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-cyan-100 flex items-center justify-center p-4 transition-all duration-500">
       <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-xl relative transform transition-all duration-300 hover:shadow-2xl">
         {/* Back Button */}
         <button
@@ -201,8 +265,8 @@ export default function PreferencesStep() {
 
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4 transform transition-all duration-300 hover:scale-110">
-            <Cloud className="w-8 h-8 text-orange-600" />
+          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4 transform transition-all duration-300 hover:scale-110">
+            <Cloud className="w-8 h-8 text-blue-600" />
           </div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2 transform transition-all duration-300">
             Final Preferences
@@ -225,8 +289,8 @@ export default function PreferencesStep() {
                   key={weather.id}
                   className={`flex flex-col items-center p-4 border-2 rounded-2xl cursor-pointer transition-all duration-300 transform hover:scale-[1.02] ${
                     formData.weather_preference === weather.id
-                      ? "border-orange-500 bg-orange-50 shadow-md scale-105"
-                      : "border-gray-200 hover:border-orange-300 bg-white"
+                      ? "border-blue-500 bg-blue-50 shadow-md scale-105"
+                      : "border-gray-200 hover:border-blue-300 bg-white"
                   }`}
                 >
                   <input
@@ -252,7 +316,7 @@ export default function PreferencesStep() {
           {/* Transport Preference */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-4">
-              <Route className="w-5 h-5 inline mr-2 text-green-500 transition-transform duration-300 hover:scale-110" />
+              <Route className="w-5 h-5 inline mr-2 text-blue-500 transition-transform duration-300 hover:scale-110" />
               How do you want to travel?
             </label>
             <div className="grid grid-cols-2 gap-3">
@@ -263,8 +327,8 @@ export default function PreferencesStep() {
                     key={transport.id}
                     className={`flex flex-col items-center p-4 border-2 rounded-2xl cursor-pointer transition-all duration-300 transform hover:scale-[1.02] ${
                       formData.mode_of_transport === transport.id
-                        ? "border-green-500 bg-green-50 shadow-md scale-105"
-                        : "border-gray-200 hover:border-green-300 bg-white"
+                        ? "border-blue-500 bg-blue-50 shadow-md scale-105"
+                        : "border-gray-200 hover:border-blue-300 bg-white"
                     }`}
                   >
                     <input
@@ -289,7 +353,50 @@ export default function PreferencesStep() {
                       {transport.label}
                     </span>
                     <span className="text-xs text-gray-500 mt-1">
-                      Min: <IndianRupee className="w-3 h-3 inline  transition-transform duration-300 hover:scale-110"/>{transport.minBudget.toLocaleString()}
+                      Min: <IndianRupee className="w-3 h-3 inline transition-transform duration-300 hover:scale-110" />
+                      {transport.minBudget.toLocaleString()}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Experience Type */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-4">
+              <Star className="w-5 h-5 inline mr-2 text-blue-500 transition-transform duration-300 hover:scale-110" />
+              What type of experience do you prefer?
+            </label>
+            <div className="grid grid-cols-3 gap-3">
+              {EXPERIENCE_OPTIONS.map((experience) => {
+                const IconComponent = experience.icon;
+                return (
+                  <label
+                    key={experience.id}
+                    className={`flex flex-col items-center p-4 border-2 rounded-2xl cursor-pointer transition-all duration-300 transform hover:scale-[1.02] ${
+                      formData.experience_type === experience.id
+                        ? `${experience.borderColor} ${experience.bgColor} shadow-md scale-105 border-2`
+                        : "border-gray-200 hover:border-blue-300 bg-white"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="experience_type"
+                      value={experience.id}
+                      checked={formData.experience_type === experience.id}
+                      onChange={() => handleExperienceChange(experience.id)}
+                      required
+                      className="sr-only"
+                    />
+                    <IconComponent
+                      className={`w-8 h-8 mb-2 ${experience.color} transition-transform duration-300 hover:scale-110`}
+                    />
+                    <span className="text-sm font-medium text-gray-900 text-center">
+                      {experience.label}
+                    </span>
+                    <span className="text-xs text-gray-500 text-center mt-1">
+                      {experience.description}
                     </span>
                   </label>
                 );
@@ -307,7 +414,6 @@ export default function PreferencesStep() {
             </label>
             <div className="grid grid-cols-2 gap-3">
               {TRAVEL_PREFERENCES.map((pref) => {
-                // Map preferences to relevant emojis/images
                 const preferenceImages = {
                   Adventure: "🧗‍♂️",
                   Relaxation: "🏖️",
@@ -351,37 +457,31 @@ export default function PreferencesStep() {
 
           {/* Budget */}
           <div className="bg-blue-50 rounded-2xl p-6 transform transition-all duration-300 hover:scale-[1.02]">
-            <label className="block text-sm font-medium text-blue-700 mb-4">
+            <label className="block text-sm font-medium text-blue-700 mb-4 transition-all duration-300">
               <IndianRupee className="w-5 h-5 inline mr-2 transition-transform duration-300 hover:scale-110" />
               What&apos;s your budget? (INR)
-              {formData.mode_of_transport && (
-                <span className="text-blue-600 ml-2 text-xs">
-                  (Minimum: <IndianRupee className="w-3 h-3 inline  transition-transform duration-300 hover:scale-110"/>{currentBudgetRange.min.toLocaleString()} for{" "}
-                  {getCurrentTransportOption()?.label})
+              {formData.mode_of_transport && formData.experience_type && (
+                <span className="text-blue-600 ml-2 text-xs animate-fadeIn">
+                  Suggested: <IndianRupee className="w-3 h-3 inline transition-transform duration-300 hover:scale-110" />
+                  {suggestedBudget.toLocaleString()} for{" "}
+                  {getCurrentTransportOption()?.label} ({getCurrentExperienceOption()?.label})
                 </span>
               )}
             </label>
             <div className="space-y-4">
-              <input
-                type="range"
-                name="budget"
-                value={formData.budget}
-                onChange={handleInputChange}
-                min={currentBudgetRange.min}
-                max={currentBudgetRange.max}
-                step={currentBudgetRange.step}
-                className="w-full cursor-pointer transition-all duration-200"
-              />
-              <div className="text-center">
-                <span className="text-3xl font-bold text-blue-600 transition-all duration-300">
-                  <IndianRupee className="w-8 h-8 inline  transition-transform duration-300 hover:scale-110"/>{Number(formData.budget).toLocaleString()}
-                </span>
-                <div className="flex justify-between text-xs text-blue-500 mt-2">
-                  <span><IndianRupee className="w-4 h-4 inline  transition-transform duration-300 hover:scale-110"/>{currentBudgetRange.min.toLocaleString()}</span>
-                  <span className="text-blue-700 font-medium">
-                    Selected: <IndianRupee className="w-3 h-3 inline  transition-transform duration-300 hover:scale-110"/>{Number(formData.budget).toLocaleString()}
+              <div className="flex items-center justify-center">
+                <div className="relative w-full max-w-xs">
+                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-blue-600 transition-all duration-300 group-hover:scale-110">
+                    <IndianRupee className="w-5 h-5" />
                   </span>
-                  <span><IndianRupee className="w-4 h-4 inline  transition-transform duration-300 hover:scale-110"/>{currentBudgetRange.max.toLocaleString()}</span>
+                  <input
+                    type="number"
+                    name="budget"
+                    value={formData.budget}
+                    onChange={handleInputChange}
+                    className="w-full pl-10 pr-4 py-3 text-lg font-bold text-blue-600 border-2 border-blue-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all duration-500 ease-out backdrop-blur-sm bg-white/50 hover:bg-white/80 hover:border-blue-300 hover:shadow-lg group"
+                    placeholder="Enter your budget"
+                  />
                 </div>
               </div>
             </div>
@@ -398,7 +498,7 @@ export default function PreferencesStep() {
             </button>
             <button
               type="submit"
-              className="flex-1 bg-orange-600 text-white py-3 px-6 rounded-2xl cursor-pointer hover:bg-orange-700 hover:scale-105 active:scale-95 transition-all duration-200 font-medium"
+              className="flex-1 bg-blue-600 text-white py-3 px-6 rounded-2xl cursor-pointer hover:bg-blue-700 hover:scale-105 active:scale-95 transition-all duration-200 font-medium"
             >
               🎉 Create My Trip!
             </button>
