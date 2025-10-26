@@ -120,18 +120,31 @@ def add_trip(request, payload: TripDetailsSchema):
     """
     trip_doc = payload.dict()
 
-    # Convert date to datetime for MongoDB compatibility
-    if 'date' in trip_doc and isinstance(trip_doc['date'], date):
-        trip_doc['date'] = datetime.combine(trip_doc['date'], datetime.min.time())
+    # Convert date strings to datetime for MongoDB compatibility
+    date_fields = ['start_date', 'end_date', 'to_date']
+    
+    for field in date_fields:
+        if field in trip_doc and trip_doc[field]:
+            try:
+                # Parse the date string (format: "YYYY-MM-DD")
+                date_obj = datetime.strptime(trip_doc[field], "%Y-%m-%d")
+                trip_doc[field] = datetime.combine(date_obj, datetime.min.time())
+            except (ValueError, TypeError) as e:
+                print(f"Warning: Could not parse {field}: {trip_doc[field]}. Error: {e}")
+                # Keep the original string if parsing fails
 
+    # Insert into MongoDB
     result = settings.MONGO_DB.trip_details.insert_one(trip_doc)
 
     # Prepare the document for a clean JSON response
     trip_doc['_id'] = str(result.inserted_id)
-    trip_doc['date'] = trip_doc['date'].isoformat()
+    
+    # Convert datetime objects back to ISO format strings for response
+    for field in date_fields:
+        if field in trip_doc and isinstance(trip_doc[field], datetime):
+            trip_doc[field] = trip_doc[field].isoformat()
 
     return {"message": "Trip saved successfully", "data": trip_doc}
-
 
 @trip_router.get("/trips/")
 def list_trips(request):

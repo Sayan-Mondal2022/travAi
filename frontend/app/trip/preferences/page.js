@@ -121,10 +121,17 @@ const BUDGET_RANGES = {
 export default function PreferencesStep() {
   const router = useRouter();
   const [formData, setFormData] = useState({
+    // Weather and transport
     weather_preference: "",
     mode_of_transport: "",
+
+    // Experience type
     experience_type: "",
+
+    // Travel preferences
     travel_preferences: [],
+
+    // Budget
     budget: BUDGET_RANGES.default.min,
   });
   const [currentBudgetRange, setCurrentBudgetRange] = useState(
@@ -155,43 +162,104 @@ export default function PreferencesStep() {
     localStorage.setItem("tripData", JSON.stringify(updatedTripData));
   }, [formData]);
 
- // Update budget range and calculate suggested budget when transport mode or experience type changes
-useEffect(() => {
-  if (formData.mode_of_transport) {
-    const newRange =
-      BUDGET_RANGES[formData.mode_of_transport] || BUDGET_RANGES.default;
-    setCurrentBudgetRange(newRange);
+  // Update budget range and calculate suggested budget when transport mode or experience type changes
+  useEffect(() => {
+    if (formData.mode_of_transport) {
+      const newRange =
+        BUDGET_RANGES[formData.mode_of_transport] || BUDGET_RANGES.default;
+      setCurrentBudgetRange(newRange);
 
-    // Calculate suggested budget based on transport and experience type
-    let baseBudget = newRange.min;
-    if (formData.experience_type) {
-      const experience = EXPERIENCE_OPTIONS.find(
-        (exp) => exp.id === formData.experience_type
-      );
-      baseBudget = Math.round(newRange.min * experience.multiplier);
+      // Calculate suggested budget based on transport and experience type
+      let baseBudget = newRange.min;
+      if (formData.experience_type) {
+        const experience = EXPERIENCE_OPTIONS.find(
+          (exp) => exp.id === formData.experience_type
+        );
+        baseBudget = Math.round(newRange.min * experience.multiplier);
+      }
+
+      setSuggestedBudget(baseBudget);
+
+      // Always update budget to the suggested amount when experience type changes
+      // or when transport mode changes (if experience type is already selected)
+      if (formData.experience_type || formData.mode_of_transport) {
+        setFormData((prev) => ({
+          ...prev,
+          budget: baseBudget,
+        }));
+      }
     }
-
-    setSuggestedBudget(baseBudget);
-
-    // Always update budget to the suggested amount when experience type changes
-    // or when transport mode changes (if experience type is already selected)
-    if (formData.experience_type || formData.mode_of_transport) {
-      setFormData((prev) => ({
-        ...prev,
-        budget: baseBudget,
-      }));
-    }
-  }
-}, [formData.mode_of_transport, formData.experience_type]);
+  }, [formData.mode_of_transport, formData.experience_type]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     // Get all data from localStorage and combine with current form data
     const savedData = JSON.parse(localStorage.getItem("tripData") || "{}");
-    const allData = { ...savedData, ...formData };
+
+    // Prepare data according to your Python schema
+    const allData = {
+      // Location fields (from previous steps)
+      from_location: savedData.from_location || "",
+      to_location: savedData.to_location || "",
+
+      // Date fields (from previous steps) - ensure they are strings
+      start_date: savedData.start_date
+        ? new Date(savedData.start_date).toISOString().split("T")[0]
+        : "",
+      end_date: savedData.end_date
+        ? new Date(savedData.end_date).toISOString().split("T")[0]
+        : "",
+      to_date: savedData.end_date
+        ? new Date(savedData.end_date).toISOString().split("T")[0]
+        : "", // to_date matches end_date
+      duration_days: savedData.duration_days || 1,
+
+      // Travel type (from previous steps)
+      travel_type: savedData.travel_type || "",
+
+      // Group details (from previous steps) - ADD ELDER_COUNT
+      people_count: savedData.people_count || 1,
+      has_elderly: savedData.has_elderly || false,
+      has_children: savedData.has_children || false,
+      has_pets: savedData.has_pets || false,
+      children_count: savedData.children_count || 0,
+      elder_count: savedData.elder_count || 0, // ← ADD THIS LINE
+      pets_count: savedData.pets_count || 0,
+
+      // Current form data (preferences)
+      weather_preference: formData.weather_preference,
+      mode_of_transport: formData.mode_of_transport,
+      experience_type: formData.experience_type,
+      travel_preferences: formData.travel_preferences,
+      budget: parseFloat(formData.budget) || 0,
+    };
 
     console.log("Data being sent to the backend:", allData);
+
+    // Validate required fields
+    const requiredFields = [
+      "from_location",
+      "to_location",
+      "start_date",
+      "end_date",
+      "travel_type",
+      "weather_preference",
+      "mode_of_transport",
+      "experience_type",
+      "budget",
+    ];
+
+    const missingFields = requiredFields.filter((field) => !allData[field]);
+    if (missingFields.length > 0) {
+      alert(
+        `Please fill in all required fields. Missing: ${missingFields.join(
+          ", "
+        )}`
+      );
+      return;
+    }
+
     try {
       // Use the apiPost function from your api.js
       const result = await apiPost("/api/trip/add-trip/", allData);
@@ -353,7 +421,8 @@ useEffect(() => {
                       {transport.label}
                     </span>
                     <span className="text-xs text-gray-500 mt-1">
-                      Min: <IndianRupee className="w-3 h-3 inline transition-transform duration-300 hover:scale-110" />
+                      Min:{" "}
+                      <IndianRupee className="w-3 h-3 inline transition-transform duration-300 hover:scale-110" />
                       {transport.minBudget.toLocaleString()}
                     </span>
                   </label>
@@ -462,9 +531,11 @@ useEffect(() => {
               What&apos;s your budget? (INR)
               {formData.mode_of_transport && formData.experience_type && (
                 <span className="text-blue-600 ml-2 text-xs animate-fadeIn">
-                  Suggested: <IndianRupee className="w-3 h-3 inline transition-transform duration-300 hover:scale-110" />
+                  Suggested:{" "}
+                  <IndianRupee className="w-3 h-3 inline transition-transform duration-300 hover:scale-110" />
                   {suggestedBudget.toLocaleString()} for{" "}
-                  {getCurrentTransportOption()?.label} ({getCurrentExperienceOption()?.label})
+                  {getCurrentTransportOption()?.label} (
+                  {getCurrentExperienceOption()?.label})
                 </span>
               )}
             </label>
@@ -479,6 +550,8 @@ useEffect(() => {
                     name="budget"
                     value={formData.budget}
                     onChange={handleInputChange}
+                    min={suggestedBudget || currentBudgetRange.min}
+                    max={currentBudgetRange.max}
                     className="w-full pl-10 pr-4 py-3 text-lg font-bold text-blue-600 border-2 border-blue-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all duration-500 ease-out backdrop-blur-sm bg-white/50 hover:bg-white/80 hover:border-blue-300 hover:shadow-lg group"
                     placeholder="Enter your budget"
                   />

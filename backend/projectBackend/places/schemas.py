@@ -1,24 +1,37 @@
-# Make sure you have the necessary imports
+# schemas.py
+from typing import List, Optional
 from ninja import Schema
-from datetime import date
-from typing import List
 
 class TripDetailsSchema(Schema):
-    # Existing and matching fields
+    # Location fields
     from_location: str
     to_location: str
-    date: date
-    duration_days: int
-    people_count: int
-    budget: float
-    travel_preferences: List[str]
-    mode_of_transport: str
-    weather_preference: str
     
-    # New and updated fields from your JSON
+    # Date fields
+    start_date: str
+    end_date: str
+    duration_days: int
+    
+    # Travel type
     travel_type: str
+    
+    # Group details - make elder_count optional
+    people_count: int
     has_elderly: bool
     has_children: bool
     has_pets: bool
     children_count: int
+    elder_count: int  # Make it optional with default
     pets_count: int
+    
+    # Preferences
+    weather_preference: str
+    mode_of_transport: str
+    experience_type: str
+    travel_preferences: List[str]
+    
+    # Budget
+    budget: float
+    
+    # Optional field
+    to_date: Optional[str] = None
