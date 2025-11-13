@@ -2,7 +2,13 @@
 
 **TravAi** is an AI-powered travel assistant that helps users plan personalized trips with dynamic itineraries, real-time updates, and smart recommendations. It simplifies travel by combining route optimization, budgeting, and conversational assistance into one seamless platform.
 
----
+## 🧭 Project Overview
+
+Planning a trip often means juggling multiple apps for routes, weather, budgets, and bookings — a process that’s time-consuming and fragmented. TravAI was built to solve this.
+
+It’s an AI-powered Trip Planner that simplifies travel by generating smart itineraries, managing budgets, tracking weather, and suggesting nearby essentials like restaurants, petrol bunks, and hospitals — all in one place.
+
+With its AI Travel Assistant, TravAI offers natural language trip planning, real-time translation, and personalized recommendations, helping users travel smarter, safer, and stress-free across both web and mobile platforms.
 
 ## 🧠 Tech Stack
 
@@ -13,7 +19,6 @@
 - **Deployment & DevOps:** Docker, Kubernetes (*Cloud Deployment*)  
 - **Version Control:** Git & GitHub
 
----
 
 ## 🛠️ Installation & Setup
 
@@ -134,7 +139,6 @@
   FLUSH PRIVILEGES;
   ```
 
----
 
 ## 👥 Contributors
 
