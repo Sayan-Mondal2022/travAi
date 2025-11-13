@@ -22,19 +22,10 @@ With its AI Travel Assistant, TravAI offers natural language trip planning, real
 
 ## 🛠️ Installation & Setup
 
-### Prerequisites
+### 🧾 Prerequisites
+Before running this project, please make sure the required tools and technologies are installed.  
+➡️ [View Full Prerequisites](./PREREQUISITES.md)
 
-- Node.js 
-- Python 
-- Git
-- npm (Node package manager)
-- pip (Python package manager)
-- Any Preferred Code Editor
-- MongoDB (For Trip Details)
-- MySQL (For User Details)
-- Redis (For Caching Trip details)
-- Ngrok (To expose Local Servers, mainly using for Network Tunneling)
-- Dialogflow (To build a Conversational UI like a Chatbot)
 
 1. **Clone or Pull the repository**
 
