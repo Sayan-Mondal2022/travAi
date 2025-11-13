@@ -20,12 +20,20 @@ With its AI Travel Assistant, TravAI offers natural language trip planning, real
 - **Version Control:** Git & GitHub
 
 
-## 🛠️ Installation & Setup
-
-### 🧾 Prerequisites
+## 🧾 Prerequisites
 Before running this project, please make sure the required tools and technologies are installed.  
 ➡️ [View Full Prerequisites](./PREREQUISITES.md)
 
+## 🌍 Key Features
+- 🧠 **AI-Powered Travel Assistant** – Generates personalized itineraries using natural language input.  
+- 🗺️ **Dynamic Itinerary Generation** – Adjusts trip details based on user preferences and time.  
+- 💬 **Conversational Interface** – Built using Dialogflow for human-like chatbot interactions.  
+- 🌦️ **Real-Time Updates** – Fetches weather, routes, and local recommendations dynamically.  
+- 💾 **Hybrid Database Design** – MySQL for user details, MongoDB for trip data, Redis for caching.  
+- 🚀 **Cross-Platform Support** – Works seamlessly on both web and mobile.  
+
+
+## 🛠️ Installation & Setup
 
 1. **Clone or Pull the repository**
 
@@ -133,7 +141,30 @@ Before running this project, please make sure the required tools and technologie
 
 ## 👥 Contributors
 
-- **Sayan Mondal**  
-- **Pavithra**  
-- **Shailini**  
-- **Ajay**
+Thanks to these amazing people for their contributions!  
+
+<a href="https://github.com/sayan-mondal2022/travAi/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=sayan-mondal2022/travAi" />
+</a>
+
+
+## 🙏 Acknowledgement
+
+This project was built using several open-source technologies and APIs that made development efficient and scalable.
+
+Special thanks to:
+- **Node.js**, **Next.js**, and **React Native** for the powerful frontend ecosystem  
+- **Django** for the robust backend architecture  
+- **MySQL**, **MongoDB**, and **Redis** for reliable data storage and caching  
+- **Dialogflow** and **Google APIs** for enabling natural conversations and real-time data access  
+
+
+<h2 align="center">❤️ Thank You</h2>
+
+<p align="center">
+  Thank you for checking out <b>TravAi</b>! <br>
+  Your interest and support mean a lot to us. <br><br>
+  If you found this project helpful, don’t forget to ⭐ <b>star the repository</b> and share it with others who love AI and travel! 🌍✨
+</p>
+
+
