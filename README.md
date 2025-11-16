@@ -1,4 +1,4 @@
-# TravAi
+# TravAI
 
 **TravAi** is an AI-powered travel assistant that helps users plan personalized trips with dynamic itineraries, real-time updates, and smart recommendations. It simplifies travel by combining route optimization, budgeting, and conversational assistance into one seamless platform.
 
