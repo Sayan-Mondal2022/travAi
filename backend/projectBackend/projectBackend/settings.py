@@ -51,7 +51,7 @@ INSTALLED_APPS = [
     # apps
     "places",       # Will handle places and tours.
     "trip_budget",  # Will be used for budget calculation.
-    "chatbot"       # This will be Dialogflow powered.
+    "chatbot",       # This will be Dialogflow powered.
     "users"         # This is to handle user related functions
 ]
 
@@ -99,7 +99,9 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'USER_DB',       # Create this DB in MySQL
-        'USER': 'root',
+        
+        # Change the USER to root or your SQL username
+        'USER': 'root1',
         'PASSWORD': PASSWORD,
         'HOST': '127.0.0.1',          # or IP address of DB server
         'PORT': '3306',
