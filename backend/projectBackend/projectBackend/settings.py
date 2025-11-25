@@ -50,8 +50,6 @@ INSTALLED_APPS = [
 
     # apps
     "places",       # Will handle places and tours.
-    "trip_budget",  # Will be used for budget calculation.
-    "chatbot",       # This will be Dialogflow powered.
     "users"         # This is to handle user related functions
 ]
 
