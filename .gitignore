@@ -10,3 +10,6 @@ __pycache__
 
 # Will contain all the API Keys.
 .env
+
+# This is just a sample file
+sample.json

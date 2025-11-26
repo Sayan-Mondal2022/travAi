@@ -6,8 +6,8 @@ from django.conf import settings
 from datetime import datetime
 from dotenv import load_dotenv
 import googlemaps
-
 from places.services.itinerary import GeminiItineraryService
+from places.services.get_weather import WeatherService
 from ninja import Router, Body
 
 # Ninja Routers
@@ -20,7 +20,9 @@ logger = logging.getLogger(__name__)
 
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 gmaps = googlemaps.Client(key=GOOGLE_API_KEY)
-    
+weather = WeatherService(api_key=GOOGLE_API_KEY)
+
+weather_data = {}
 
 def get_places_by_type(place_type: str, lat: float, lng: float):
     URL = "https://maps.googleapis.com/maps/api/place/nearbysearch/json"
@@ -73,7 +75,13 @@ def get_coordinates(destination: str):
             return None, None, f"Could not find location: {destination}"
         location = geocode_result[0]['geometry']['location']
         formatted_address = geocode_result[0].get('formatted_address', destination)
-        return location["lat"], location["lng"], formatted_address
+
+        latitude = location['lat']
+        longitude = location['lng']
+
+        weather_data = weather.get_forecast_weather(latitude, longitude)
+
+        return latitude, longitude, formatted_address
     except Exception as e:
         print(f"Geocoding error for {destination}: {e}")
         return None, None, f"Geocoding failed: {str(e)}"
