@@ -261,7 +261,6 @@ export default function PreferencesStep() {
     }
 
     try {
-      // Use the apiPost function from your api.js
       const result = await apiPost("/api/trip/add-trip/", allData);
 
       // Store the trip data for use in itinerary
