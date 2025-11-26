@@ -110,7 +110,7 @@ DATABASES = {
 }
 
 MONGO_CLIENT = MongoClient("mongodb://localhost:27017/")
-MONGO_DB = MONGO_CLIENT["travAi_db"]   # your database
+MONGO_DB = MONGO_CLIENT["travAi_db"]  # your database
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
