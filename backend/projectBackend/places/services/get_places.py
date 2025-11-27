@@ -1,4 +1,5 @@
 import requests
+from typing import Dict, Any, List
 
 GOOGLE_PLACES_URL = "https://places.googleapis.com/v1/places:searchNearby"
 def fetch_places(api_key: str, latitude: float, longitude: float, included_types: list, radius: float = 1500):
@@ -44,8 +45,7 @@ def fetch_places(api_key: str, latitude: float, longitude: float, included_types
         print("❌ Nearby Search API error:", e)
         return {"places": []}
 
-
-def extract_places_data(data: dict) -> list:
+def filter_nearbySearch_places_data(data: dict) -> list:
     """
     Extracts required fields from a Places API JSON response.
     Works for large JSON with multiple place entries.
@@ -87,6 +87,5 @@ def get_places_data(api_key, lat, lng, included_types):
     Fetches raw API → extract required fields → returns cleaned data list.
     """
     raw = fetch_places(api_key, lat, lng, included_types)
-    cleaned = extract_places_data(raw)
+    cleaned = filter_nearbySearch_places_data(raw)
     return cleaned
-

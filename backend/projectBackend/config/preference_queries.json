@@ -1,0 +1,97 @@
+{
+  "Adventure": [
+    "adventure activities and sports",
+    "outdoor adventure parks",
+    "hiking and trekking trails"
+  ],
+  "Relaxation": [
+    "spa and wellness centers",
+    "peaceful relaxation spots",
+    "quiet beaches and parks"
+  ],
+  "Culture": [
+    "cultural heritage sites",
+    "traditional art and museums",
+    "local cultural experiences"
+  ],
+  "Shopping": [
+    "shopping districts and malls",
+    "local markets and bazaars",
+    "souvenir and craft shops"
+  ],
+  "Nature": [
+    "natural attractions and parks",
+    "wildlife sanctuaries",
+    "scenic nature spots"
+  ],
+  "History": [
+    "historical monuments",
+    "museums and archaeological sites",
+    "historical landmarks"
+  ],
+  "Nightlife": [
+    "nightclubs and bars",
+    "live music venues",
+    "evening entertainment spots"
+  ],
+  "Local Experiences": [
+    "local community experiences",
+    "traditional workshops",
+    "authentic local activities"
+  ],
+  "Romantic": [
+    "romantic spots and viewpoints",
+    "scenic romantic places",
+    "couples activities"
+  ],
+  "Family-Friendly": [
+    "family entertainment centers",
+    "kid-friendly attractions",
+    "family activities and parks"
+  ],
+  "Solo Travel": [
+    "solo traveler friendly spots",
+    "social meeting places",
+    "safe solo activities"
+  ],
+  "Luxury": [
+    "luxury experiences",
+    "premium attractions",
+    "exclusive venues"
+  ],
+  "Budget Travel": [
+    "free attractions",
+    "budget-friendly activities",
+    "affordable experiences"
+  ],
+  "Photography": [
+    "photography spots",
+    "scenic viewpoints",
+    "instagrammable locations"
+  ],
+  "Spiritual & Wellness": [
+    "temples and spiritual sites",
+    "wellness centers",
+    "meditation and yoga centers"
+  ],
+  "Events & Festivals": [
+    "local events and festivals",
+    "cultural celebrations",
+    "entertainment events"
+  ],
+  "Eco-Friendly Travel": [
+    "eco-friendly attractions",
+    "sustainable tourism spots",
+    "nature conservation areas"
+  ],
+  "Work-Friendly Travel": [
+    "co-working spaces",
+    "business friendly venues",
+    "professional meeting spots"
+  ],
+  "Accessible Travel": [
+    "wheelchair accessible attractions",
+    "disabled friendly venues",
+    "accessible tourism spots"
+  ]
+}

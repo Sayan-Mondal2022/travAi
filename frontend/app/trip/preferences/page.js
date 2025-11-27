@@ -224,7 +224,7 @@ export default function PreferencesStep() {
       has_children: savedData.has_children || false,
       has_pets: savedData.has_pets || false,
       children_count: savedData.children_count || 0,
-      elder_count: savedData.elder_count || 0, // ← ADD THIS LINE
+      elder_count: savedData.elder_count || 0, 
       pets_count: savedData.pets_count || 0,
 
       // Current form data (preferences)

@@ -10,6 +10,12 @@ from places.services.itinerary import GeminiItineraryService
 from places.services.get_weather import WeatherService
 from places.services.get_places import get_places_data
 from ninja import Router, Body
+from typing import Dict, Any, List
+from places.services.place_queries import (
+    generate_tourist_queries, 
+    generate_restaurant_queries, 
+    generate_lodging_queries
+)
 
 # Ninja Routers
 tour_router = Router()
@@ -243,3 +249,208 @@ def get_places_new(request, destination: str):
     response["_id"] = str(inserted.inserted_id)
 
     return {"source": "api", **response}
+
+
+# -----------------------------------------------------------
+# 1. FILTER FUNCTION (CLEAN + FIXED)
+# -----------------------------------------------------------
+def filter_textSearch_place_data(raw_data: dict[str, Any]) -> List[Dict[str, Any]]:
+    """
+    Extract specific fields from the raw Google Places JSON response.
+    """
+    filtered_places = []
+
+    for place in raw_data.get("places", []):
+        filtered_place = {
+            "name": place.get("name"),
+            "id": place.get("id"),
+            "types": place.get("types"),
+            "internationalPhoneNumber": place.get("internationalPhoneNumber"),
+            "formattedAddress": place.get("formattedAddress"),
+            "editorialSummary.text": place.get("editorialSummary", {}).get("text"),
+            "addressDescriptor.landmarks": place.get("addressDescriptor", {}).get("landmarks"),
+            "googleMapsLinks.directionsUri": place.get("googleMapsLinks", {}).get("directionsUri"),
+            "googleMapsLinks.placeUri": place.get("googleMapsLinks", {}).get("placeUri"),
+            "googleMapsLinks.reviewsUri": place.get("googleMapsLinks", {}).get("reviewsUri"),
+            "googleMapsLinks.photosUri": place.get("googleMapsLinks", {}).get("photosUri"),
+            "reviewSummary.text": place.get("reviewSummary", {}).get("text"),
+        }
+        filtered_places.append(filtered_place)
+
+    return filtered_places
+
+
+# -----------------------------------------------------------
+# 2. API CALLING FUNCTION (FIELD MASK FIXED)
+# -----------------------------------------------------------
+def fetch_places_data(api_key: str, query: str) -> Dict[str, Any]:
+    """
+    Calls the Google Places Text Search API with a corrected FieldMask.
+    """
+    url = "https://places.googleapis.com/v1/places:searchText"
+
+    headers = {
+        "X-Goog-Api-Key": api_key,
+        "Content-Type": "application/json",
+        "X-Goog-FieldMask": (
+            "places.name,"
+            "places.id,"
+            "places.types,"
+            "places.internationalPhoneNumber,"
+            "places.formattedAddress,"
+            "places.editorialSummary.text,"
+            "places.addressDescriptor.landmarks,"
+            "places.googleMapsLinks.directionsUri,"
+            "places.googleMapsLinks.placeUri,"
+            "places.googleMapsLinks.reviewsUri,"
+            "places.googleMapsLinks.photosUri,"
+            "places.reviewSummary.text"
+        ),
+    }
+
+    body = {"textQuery": query}
+
+    try:
+        response = requests.post(url, headers=headers, json=body, timeout=10)
+        response.raise_for_status()
+        return response.json()
+
+    except requests.RequestException as e:
+        print(f"❌ Places API request failed: {e}")
+        return None
+
+
+# -----------------------------------------------------------
+# 3. MAIN ENDPOINT (BUG-FIXED + JSON-SAFE)
+# -----------------------------------------------------------
+@tour_router.get("/preference-places/{destination}")
+def get_preference_based_places(request, destination: str, travel_preferences: str, experience_type: str):
+    """
+    Get places based on user travel preferences and experience type.
+    """
+    try:
+        # Parse preferences
+        preferences_list = [p.strip() for p in travel_preferences.split(",")] if travel_preferences else []
+
+        # Cache key
+        cache_key = f"{destination}_{experience_type}_{hash(frozenset(preferences_list))}"
+
+        # Check cache
+        cached = settings.MONGO_DB.preference_places_cache.find_one({"cache_key": cache_key})
+        if cached:
+            cached["_id"] = str(cached["_id"])
+            print("Using cached preference-based places...")
+            return {"source": "cache", **cached}
+
+        # Get coordinates
+        lat, lng, formatted_destination = get_coordinates(destination)
+        if lat is None:
+            return {"error": formatted_destination, "status": 404}
+
+        # Generate queries
+        tourist_queries = generate_tourist_queries(preferences_list, experience_type)
+        restaurant_queries = generate_restaurant_queries(preferences_list, experience_type)
+        lodging_queries = generate_lodging_queries(preferences_list, experience_type)
+
+        tourist_attractions = []
+        restaurants = []
+        lodging = []
+
+        # Fetch tourist attractions
+        for q in tourist_queries:
+            raw = fetch_places_data(GOOGLE_API_KEY, f"{q} in {destination}")
+            if raw:
+                tourist_attractions.extend(filter_textSearch_place_data(raw))
+
+        # Fetch restaurants
+        for q in restaurant_queries:
+            raw = fetch_places_data(GOOGLE_API_KEY, f"{q} in {destination}")
+            if raw:
+                restaurants.extend(filter_textSearch_place_data(raw))
+
+        # Fetch lodging
+        for q in lodging_queries:
+            raw = fetch_places_data(GOOGLE_API_KEY, f"{q} in {destination}")
+            if raw:
+                lodging.extend(filter_textSearch_place_data(raw))
+
+        # Remove duplicates
+        def remove_duplicates(data, limit=15):
+            seen = set()
+            results = []
+            for place in data:
+                pid = place.get("id")
+                if pid and pid not in seen:
+                    seen.add(pid)
+                    results.append(place)
+                if len(results) >= limit:
+                    break
+            return results
+
+        tourist_attractions = remove_duplicates(tourist_attractions)
+        restaurants = remove_duplicates(restaurants)
+        lodging = remove_duplicates(lodging)
+
+        # Final response
+        response_data = {
+            "cache_key": cache_key,
+            "destination": formatted_destination,
+            "coordinates": {"lat": lat, "lng": lng},
+            "travel_preferences": preferences_list,
+            "experience_type": experience_type,
+            "generated_queries": {
+                "tourist_attractions": tourist_queries,
+                "restaurants": restaurant_queries,
+                "lodging": lodging_queries,
+            },
+            "tourist_attractions": tourist_attractions,
+            "restaurants": restaurants,
+            "lodging": lodging,
+            "last_updated": datetime.now().isoformat(),
+        }
+
+        # Insert into cache
+        result = settings.MONGO_DB.preference_places_cache.insert_one(response_data)
+        response_data["_id"] = str(result.inserted_id)
+
+        print(f"Fetched {len(tourist_attractions)} attractions, {len(restaurants)} restaurants, {len(lodging)} lodging")
+
+        return {"source": "api", **response_data}
+
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        return {"error": f"Internal server error: {str(e)}", "status": 500}
+
+
+# -----------------------------------------------------------
+# 4. SECOND ENDPOINT (SAFELY REUSE LOGIC)
+# -----------------------------------------------------------
+@tour_router.get("/trip-places/{trip_id}")
+def get_places_for_trip(request, trip_id: str):
+    try:
+        from bson import ObjectId
+
+        trip = settings.MONGO_DB.trip_details.find_one({"_id": ObjectId(trip_id)})
+        if not trip:
+            return {"error": "Trip not found", "status": 404}
+
+        destination = trip.get("to_location")
+        prefs = trip.get("travel_preferences", [])
+        experience = trip.get("experience_type", "moderate")
+
+        if not destination:
+            return {"error": "Destination missing in trip data", "status": 400}
+
+        preferences_string = ",".join(prefs)
+
+        # Reuse logic safely
+        return get_preference_based_places(
+            request,
+            destination,
+            preferences_string,
+            experience
+        )
+
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        return {"error": f"Internal server error: {str(e)}", "status": 500}
