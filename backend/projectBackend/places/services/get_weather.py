@@ -23,9 +23,7 @@ class WeatherService:
                 "windSpeed": cond.get("wind", {}).get("speed", {}).get("value"),
                 "windSpeedUnit": cond.get("wind", {}).get("speed", {}).get("unit"),
                 "condition": cond.get("weatherCondition", {}).get("description", {}).get("text"),
-                # Day or night: using isDaytime boolean
                 "dayOrNight": "day" if cond.get("isDaytime") else "night",
-                # Precipitation chance:
                 "precipitationChance": cond.get("precipitation", {}).get("probability", {}).get("percent"),
             }
 
@@ -35,7 +33,6 @@ class WeatherService:
             filtered_days: List[Dict[str, Any]] = []
 
             for day in days:
-                # build ISO date and weekday name from displayDate if available; fallback to interval.startTime
                 disp = day.get("displayDate", {})
                 try:
                     dt = date(disp.get("year"), disp.get("month"), disp.get("day"))
@@ -117,7 +114,7 @@ class WeatherService:
     # --------------------------------------------------------
     # 7-DAY FORECAST FUNCTION
     # --------------------------------------------------------
-    def get_forecast_weather(self, latitude: float, longitude: float, days: int = 7):
+    def get_forecast_weather(self, latitude: float, longitude: float, days: int = 5):
 
         if days > 7:
             days = 7

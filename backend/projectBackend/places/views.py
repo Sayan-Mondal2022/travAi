@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 import googlemaps
 from places.services.itinerary import GeminiItineraryService
 from places.services.get_weather import WeatherService
+from places.services.get_places import get_places_data
 from ninja import Router, Body
 
 # Ninja Routers
@@ -205,3 +206,40 @@ async def generate_itinerary(request, payload: dict = Body(...)):
     except Exception as e:
         logger.error(f"Itinerary generation failed: {str(e)}")
         return {"success": False, "error": f"Failed to generate itinerary: {str(e)}"}
+
+
+@tour_router.get("/v2/places/{destination}")
+def get_places_new(request, destination: str):
+    """
+    Fetches tourist_attractions, lodging, restaurants using NEW Places API.
+    Caches results in Mongo similar to your existing endpoint.
+    """
+
+    # 1. Check cache
+    cached = settings.MONGO_DB.new_places_cache.find_one({"destination": destination})
+    if cached:
+        cached["_id"] = str(cached["_id"])
+        return {"source": "cache", **cached}
+
+    # 2. Geocode destination
+    lat, lng, formatted = get_coordinates(destination)
+    if lat is None:
+        return {"error": formatted, "status": 404}
+
+    tourist_attractions = get_places_data(GOOGLE_API_KEY, lat, lng, ["tourist_attraction"])
+    lodging = get_places_data(GOOGLE_API_KEY, lat, lng, ["lodging"])
+    restaurants = get_places_data(GOOGLE_API_KEY, lat, lng, ["restaurant"])
+
+    response = {
+        "destination": formatted,
+        "coordinates": {"lat": lat, "lng": lng},
+        "tourist_attractions": tourist_attractions,
+        "lodging": lodging,
+        "restaurants": restaurants,
+    }
+
+    # 4. Save to cache
+    inserted = settings.MONGO_DB.new_places_cache.insert_one(response)
+    response["_id"] = str(inserted.inserted_id)
+
+    return {"source": "api", **response}
