@@ -1,77 +1,154 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
+import "./login.css";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [formData, setFormData] = useState({ email: "", password: "" });
 
-  const handleChange = (e) => {
+  const [formData, setFormData] = useState({
+    email: "",
+    password: "",
+  });
+
+  const [showPassword, setShowPassword] = useState(false);
+
+  // IMAGE SLIDER STATE
+  const images = [
+    "/images/travel-bg.jpg",
+    "/images/travel-bg1.jpg",
+    "/images/travel-bg2.jpg",
+    "/images/travel-bg3.jpg",
+    "/images/travel-bg4.jpg",
+  ];
+
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  // Auto switch images every 15 seconds
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentIndex((prev) => (prev + 1) % images.length);
+    }, 15000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Manual Switch
+  const goNext = () => setCurrentIndex((prev) => (prev + 1) % images.length);
+  const goPrev = () =>
+    setCurrentIndex((prev) => (prev - 1 + images.length) % images.length);
+
+  const handleChange = (e) =>
     setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    console.log("Login Data:", formData);
-    // TODO: Replace with your API call for authentication
-    router.push("/"); // Redirect after login
+    router.push("/");
   };
 
   return (
-    <section className="flex items-center justify-center min-h-screen bg-gray-50">
-      <div className="w-full max-w-md bg-white rounded-3xl shadow-lg p-8">
-        <h1 className="text-2xl font-bold text-center mb-6">Login</h1>
+    <section className="login-wrapper fade-in">
+      <div className="login-container">
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium">Email</label>
-            <input
-              type="email"
-              name="email"
-              placeholder="Enter your email"
-              value={formData.email}
-              onChange={handleChange}
-              required
-              className="w-full mt-1 p-2 border rounded-2xl focus:ring focus:ring-blue-200 outline-none border-none"
-            />
-          </div>
+        {/* LEFT PANEL */}
+        <div className="left-panel slide-up">
 
-          <div>
-            <label className="block text-sm font-medium">Password</label>
-            <input
-              type="password"
-              name="password"
-              placeholder="Enter your password"
-              value={formData.password}
-              onChange={handleChange}
-              required
-              className="w-full mt-1 p-2 border rounded-2xl focus:ring focus:ring-blue-200 outline-none border-none"
-            />
-          </div>
+          {/* CLICKABLE LOGO → HOME */}
+          <Link href="/" className="logo center-logo">
+            TravAi
+          </Link>
 
-          <button
-            type="submit"
-            className="w-full bg-blue-600 text-white p-2 rounded-2xl hover:bg-blue-700 transition"
-          >
-            Login
-          </button>
-        </form>
+          <p className="tagline center-tagline">
+            Navigate, Plan & Explore Effortlessly.
+          </p>
 
-        <p className="text-sm text-center mt-4">
-          Don’t have an account?{" "}
-          <a href="/register" className="text-blue-600 hover:underline">
-            Register
-          </a>
-        </p>
+          <h2 className="title center-title">Journey Begins</h2>
 
-        {/* ✅ Home Link */}
-        <p className="text-sm text-center mt-2">
-            <Link href="/" className="text-gray-600 hover:underline">
-                ⬅ Back to Home
+          <form onSubmit={handleSubmit} className="login-form">
+
+            <div className="input-group">
+              <label>Email</label>
+              <input
+                type="email"
+                name="email"
+                placeholder="you@example.com"
+                value={formData.email}
+                onChange={handleChange}
+                required
+              />
+            </div>
+
+            <div className="input-group password-wrapper">
+              <label>Password</label>
+
+              <input
+                type={showPassword ? "text" : "password"}
+                name="password"
+                placeholder="••••••••"
+                value={formData.password}
+                onChange={handleChange}
+                required
+              />
+
+              <span
+                className="password-toggle"
+                onClick={() => setShowPassword(!showPassword)}
+              >
+                {showPassword ? "👁️" : "👁️‍🗨️"}
+              </span>
+            </div>
+
+            <div className="options">
+              <label>
+                <input type="checkbox" /> Remember me
+              </label>
+              <a href="#" className="forgot-link">
+                Forgot Password?
+              </a>
+            </div>
+
+            {/* LOGIN BUTTON */}
+            <button type="submit" className="login-btn">
+              Log In
+            </button>
+
+            {/* LOGIN — OR — SIGN UP */}
+            <div className="or-container">
+              <span className="or-line"></span>
+              <span className="or-text">or</span>
+              <span className="or-line"></span>
+            </div>
+
+            <Link href="/register" className="signup-btn">
+              Sign Up
             </Link>
-        </p>
+          </form>
+        </div>
+
+        {/* RIGHT PANEL */}
+        <div className="right-panel slide-right">
+
+          <div className="image-area fade-slider">
+            <Image
+              key={currentIndex}
+              src={images[currentIndex]}
+              fill
+              alt="Travel"
+              className="bg-image"
+            />
+          </div>
+
+          {/* SLIDER ARROWS */}
+          <button className="slider-btn left-arrow" onClick={goPrev}>‹</button>
+          <button className="slider-btn right-arrow" onClick={goNext}>›</button>
+
+          <div className="bottom-caption">
+            <h2>Escape the Ordinary, Embrace the Journey!</h2>
+            <button className="cta-btn">Experience the world your way!</button>
+          </div>
+        </div>
       </div>
     </section>
   );
