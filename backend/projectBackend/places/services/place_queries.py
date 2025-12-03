@@ -35,65 +35,64 @@ def get_fallback_queries():
         "Nature": ["nature parks", "scenic spots", "natural attractions"]
     }
 
-def generate_tourist_queries(travel_preferences: List[str], experience_type: str) -> List[str]:
-    """Generate search queries for tourist attractions based ONLY on travel preferences"""
+def generate_tourist_queries(travel_preferences: List[str], experience_type: str):
+    """Generate search queries for tourist attractions with preference metadata."""
     preference_queries = load_preference_queries()
-    queries = []
-    
-    # Only use travel_preferences for tourist attractions
+    output = []
+
     for preference in travel_preferences:
-        clean_preference = preference.strip().title()
-        if clean_preference in preference_queries:
-            queries.extend(preference_queries[clean_preference])
+        pref_key = preference.strip().title()
+
+        if pref_key in preference_queries:
+            for q in preference_queries[pref_key]:
+                output.append({"preference": pref_key, "query": q})
         else:
-            queries.append(f"{preference.lower()} attractions")
-    
-    # Remove duplicates and limit the number of queries
-    unique_queries = list(set(queries))
-    return unique_queries[:8]  # Return max 8 queries for tourist attractions
+            # fallback if preference is not in the file
+            fallback_q = f"{preference.lower()} attractions"
+            output.append({"preference": pref_key, "query": fallback_q})
 
-def generate_restaurant_queries(experience_type: str, travel_preferences: List[str]) -> List[str]:
-    """Generate search queries for restaurants based PRIMARILY on experience type"""
-    queries = []
+    # Remove duplicates
+    unique_list = []
+    seen = set()
+    for item in output:
+        key = (item["preference"], item["query"])
+        if key not in seen:
+            seen.add(key)
+            unique_list.append(item)
 
+    return unique_list[:8]
+
+def generate_restaurant_queries(experience_type: str, travel_preferences: List[str]):
+    """Generate restaurant queries with metadata."""
+    output = []
+
+    # Normalize experience type
     if isinstance(experience_type, list):
         experience_type = experience_type[0] if experience_type else "moderate"
-    experience_type = str(experience_type).lower()
-    
-    # Experience type based restaurant queries (primary)
+    exp = str(experience_type).lower()
+
+    # Experience-based queries (PRIMARY)
     experience_restaurant_queries = {
         "budget": [
-            "budget restaurants", 
-            "cheap eats", 
-            "affordable dining",
-            "street food",
-            "local cheap restaurants",
-            "fast food restaurants"
+            "budget restaurants", "cheap eats", "affordable dining",
+            "street food", "local cheap restaurants", "fast food restaurants"
         ],
         "moderate": [
-            "good restaurants",
-            "popular dining spots", 
-            "local cuisine restaurants",
-            "mid-range restaurants",
-            "family restaurants",
-            "casual dining"
+            "good restaurants", "popular dining spots", "local cuisine restaurants",
+            "mid-range restaurants", "family restaurants", "casual dining"
         ],
         "luxury": [
-            "fine dining restaurants",
-            "luxury dining", 
-            "premium restaurants",
-            "gourmet restaurants",
-            "award-winning restaurants",
-            "upscale restaurants"
+            "fine dining restaurants", "luxury dining", "premium restaurants",
+            "gourmet restaurants", "award-winning restaurants", "upscale restaurants"
         ]
     }
-    
-    if experience_type.lower() in experience_restaurant_queries:
-        queries.extend(experience_restaurant_queries[experience_type.lower()])
-    else:
-        queries.extend(experience_restaurant_queries["moderate"])  # Default to moderate
-    
-    # Add cuisine/style preferences from travel_preferences
+
+    # Use experience_type as metadata
+    base_queries = experience_restaurant_queries.get(exp, experience_restaurant_queries["moderate"])
+    for q in base_queries:
+        output.append({"preference": exp.title(), "query": q})
+
+    # PREFERENCE-BASED secondary enhancements
     cuisine_mapping = {
         "Food & Cuisine": ["local cuisine restaurants", "food tours", "culinary experiences"],
         "Local Experiences": ["authentic local restaurants", "traditional dining"],
@@ -103,57 +102,63 @@ def generate_restaurant_queries(experience_type: str, travel_preferences: List[s
         "Nature": ["restaurants with scenic views", "garden restaurants"],
         "Budget Travel": ["budget restaurants", "affordable dining"]
     }
-    
+
     for preference in travel_preferences:
-        clean_preference = preference.strip().title()
-        if clean_preference in cuisine_mapping:
-            queries.extend(cuisine_mapping[clean_preference])
-    
-    return list(set(queries))[:5]  # Return max 5 queries for restaurants
+        pref_key = preference.strip().title()
+        if pref_key in cuisine_mapping:
+            for q in cuisine_mapping[pref_key]:
+                output.append({"preference": pref_key, "query": q})
 
-def generate_lodging_queries(experience_type: str, travel_preferences: List[str]) -> List[str]:
-    """Generate search queries for lodging based PRIMARILY on experience type"""
-    queries = []
+    # Deduplicate
+    unique_list = []
+    seen = set()
+    for item in output:
+        key = (item["preference"], item["query"])
+        if key not in seen:
+            seen.add(key)
+            unique_list.append(item)
 
+    return unique_list[:5]
+
+
+def generate_lodging_queries(experience_type: str, travel_preferences: List[str]):
+    """Generate lodging queries with metadata."""
+    output = []
+
+    # Normalize experience type
     if isinstance(experience_type, list):
         experience_type = experience_type[0] if experience_type else "moderate"
-    experience_type = str(experience_type).lower()
-    
-    # Experience type based lodging queries (primary)
+    exp = str(experience_type).lower()
+
+    # Primary lodging queries
     experience_lodging_queries = {
-        "budget": [
-            "budget hotels",
-            "hostels", 
-            "affordable accommodation",
-            "cheap hotels",
-            "budget stays"
-        ],
-        "moderate": [
-            "comfortable hotels",
-            "good hotels", 
-            "mid-range accommodation",
-            "standard hotels"
-        ],
-        "luxury": [
-            "luxury hotels",
-            "5-star hotels", 
-            "premium resorts",
-            "boutique hotels",
-            "deluxe accommodation"
-        ]
+        "budget": ["budget hotels", "hostels", "affordable accommodation", "cheap hotels", "budget stays"],
+        "moderate": ["comfortable hotels", "good hotels", "mid-range accommodation", "standard hotels"],
+        "luxury": ["luxury hotels", "5-star hotels", "premium resorts", "boutique hotels", "deluxe accommodation"]
     }
-    
-    if experience_type.lower() in experience_lodging_queries:
-        queries.extend(experience_lodging_queries[experience_type.lower()])
-    else:
-        queries.extend(experience_lodging_queries["moderate"])  # Default to moderate
-    
-    # Only add relevant preferences as secondary
+
+    base_queries = experience_lodging_queries.get(exp, experience_lodging_queries["moderate"])
+    for q in base_queries:
+        output.append({"preference": exp.title(), "query": q})
+
+    # Secondary preference additions
     for preference in travel_preferences:
-        clean_preference = preference.strip().title()
-        if clean_preference == "Eco-Friendly Travel":
-            queries.extend(["eco hotels", "sustainable accommodation"])
-        elif clean_preference == "Relaxation":
-            queries.extend(["spa resorts", "wellness hotels"])
-    
-    return list(set(queries))[:5]  # Return max 5 queries for lodging
+        pref_key = preference.strip().title()
+        if pref_key == "Eco-Friendly Travel":
+            output.append({"preference": pref_key, "query": "eco hotels"})
+            output.append({"preference": pref_key, "query": "sustainable accommodation"})
+        elif pref_key == "Relaxation":
+            output.append({"preference": pref_key, "query": "spa resorts"})
+            output.append({"preference": pref_key, "query": "wellness hotels"})
+
+    # Deduplicate
+    unique_list = []
+    seen = set()
+    for item in output:
+        key = (item["preference"], item["query"])
+        if key not in seen:
+            seen.add(key)
+            unique_list.append(item)
+
+    return unique_list[:5]
+   
