@@ -265,7 +265,7 @@ export default function PreferencesStep() {
 
       // Store the trip data for use in itinerary
       localStorage.setItem("currentTrip", JSON.stringify(result.data));
-      router.push(`/trip/itinerary`);
+      router.push(`/trip/places`);
     } catch (error) {
       console.error("Error:", error);
       alert("Failed to create trip. Please try again.");

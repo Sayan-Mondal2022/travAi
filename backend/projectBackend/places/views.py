@@ -2,20 +2,23 @@ import os
 import random
 import requests
 import logging
+from datetime import datetime
+from typing import Dict, Any, List
+
 from django.http import JsonResponse
 from django.conf import settings
-from datetime import datetime
 from dotenv import load_dotenv
 import googlemaps
+
+from ninja import Router, Body
+
 from places.services.itinerary import GeminiItineraryService
 from places.services.get_weather import WeatherService
 from places.services.get_places import get_places_data
-from ninja import Router, Body
-from typing import Dict, Any, List
 from places.services.place_queries import (
-    generate_tourist_queries, 
-    generate_restaurant_queries, 
-    generate_lodging_queries
+    generate_tourist_queries,
+    generate_restaurant_queries,
+    generate_lodging_queries,
 )
 
 # Ninja Routers
@@ -31,254 +34,100 @@ weather = WeatherService(api_key=GOOGLE_API_KEY)
 
 weather_data = {}
 
-# ===== GLOBAL HASHSETS TO STORE UNIQUE PLACE IDs =====
-PREF_TOURIST_SET = set()
-PREF_LODGING_SET = set()
-PREF_RESTAURANT_SET = set()
-
-# Even this function will not be used
-def get_places_by_type(place_type: str, lat: float, lng: float):
-    URL = "https://maps.googleapis.com/maps/api/place/nearbysearch/json"
-    params = {
-        "location": f"{lat},{lng}",
-        "radius": 15000,
-        "type": place_type,
-        "key": GOOGLE_API_KEY
-    }
-    try:
-        response = requests.get(URL, params=params)
-        data = response.json()
-        places = []
-        
-        for place in data.get("results", [])[:15]:
-            place_id = place.get("place_id")
-            photos = place.get("photos", [])
-            
-            # Get image URLs if available
-            image_urls = []
-            if photos:
-                for photo in photos[:3]:  # Get up to 3 images per place
-                    photo_reference = photo.get("photo_reference")
-                    if photo_reference:
-                        image_url = f"https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference={photo_reference}&key={GOOGLE_API_KEY}"
-                        image_urls.append(image_url)
-            
-            places.append({
-                "name": place.get("name"),
-                "address": place.get("vicinity"),
-                "rating": place.get("rating"),
-                "user_ratings_total": place.get("user_ratings_total"),
-                "location": place.get("geometry", {}).get("location", {}),
-                "place_id": place_id,
-                "types": place.get("types", []),
-                "images": image_urls,  # Add image URLs here
-                "photo_references": [photo.get("photo_reference") for photo in photos]  # Optional: keep references
-            })
-        return places
-    
-    except Exception as e:
-        print(f"Error fetching {place_type} places: {e}")
-        return []
+# ===== GLOBAL HASHSETS TO STORE UNIQUE PLACE IDs (for current request lifetime) =====
+PREF_TOURIST_SET: set[str] = set()
+PREF_LODGING_SET: set[str] = set()
+PREF_RESTAURANT_SET: set[str] = set()
 
 
+# ======================================================================
+# BASIC UTILITIES
+# ======================================================================
 def get_coordinates(destination: str):
+    """
+    Geocode a destination string to (lat, lng, formatted_address).
+    """
     try:
         geocode_result = gmaps.geocode(destination)
         if not geocode_result:
             return None, None, f"Could not find location: {destination}"
-        location = geocode_result[0]['geometry']['location']
-        formatted_address = geocode_result[0].get('formatted_address', destination)
+        location = geocode_result[0]["geometry"]["location"]
+        formatted_address = geocode_result[0].get("formatted_address", destination)
 
-        latitude = location['lat']
-        longitude = location['lng']
-
-        weather_data = weather.get_forecast_weather(latitude, longitude)
+        latitude = location["lat"]
+        longitude = location["lng"]
 
         return latitude, longitude, formatted_address
     except Exception as e:
         print(f"Geocoding error for {destination}: {e}")
         return None, None, f"Geocoding failed: {str(e)}"
 
-# This was the old Places Fetching API
-@tour_router.get("/v1/places/{destination}")
-def tourist_places(request, destination: str):
+
+def safe_str(value):
+    """Convert any type (dict, list, None, int, etc.) safely to lowercaseable string."""
+    if isinstance(value, dict):
+        return " ".join([safe_str(v) for v in value.values()])
+    if isinstance(value, list):
+        return " ".join([safe_str(v) for v in value])
+    if value is None:
+        return ""
+    return str(value)
+
+
+def group_places_by_preference(places: List[Dict[str, Any]], preferences_list: List[str]) -> Dict[str, List[Dict[str, Any]]]:
     """
-    Get all types of places with caching.
-    """
-    try:
-        # Step 1: Check cache
-        cached_data = settings.MONGO_DB.cached_places.find_one({"destination": destination})
-        if cached_data:
-            # Convert ObjectId to string
-            cached_data["_id"] = str(cached_data["_id"])
-            print("Cached Data is used....")
-            return {"source": "cache", **cached_data}
-
-        # Step 2: Fetch from Google API
-        lat, lng, formatted_destination = get_coordinates(destination)
-        if lat is None or lng is None:
-            return {"error": formatted_destination, "status": 404}
-
-        tourist_places = get_places_by_type("tourist_attraction", lat, lng)
-        lodging_places = get_places_by_type("lodging", lat, lng)
-        restaurant_places = get_places_by_type("restaurant", lat, lng)
-
-        response_data = {
-            "destination": destination,
-            "coordinates": {"lat": lat, "lng": lng},
-            "tourist_attractions": tourist_places,
-            "lodging": lodging_places,
-            "restaurants": restaurant_places,
-            "last_updated": datetime.now()
+    Groups places based on whether the place-related text contains a given preference term.
+    Returns:
+        {
+          "<preference1>": [...],
+          "<preference2>": [...],
+          "_others": [...]
         }
-
-        # Step 3: Save to cache
-        result = settings.MONGO_DB.cached_places.insert_one(response_data)
-        response_data["_id"] = str(result.inserted_id)
-
-        return {"source": "api", **response_data}
-
-    except Exception as e:
-        return {"error": f"Internal server error: {str(e)}", "status": 500}
-    
-
-@tour_router.post("/itinerary/generate/")
-async def generate_itinerary(request, payload: dict = Body(...)):
     """
-    Generate itinerary using Google Gemini API with optional custom places
+    grouped: Dict[str, List[Dict[str, Any]]] = {pref: [] for pref in preferences_list}
+    grouped["_others"] = []
+
+    for place in places:
+        combined_text = (
+            safe_str(place.get("name"))
+            + " "
+            + safe_str(place.get("types"))
+            + " "
+            + safe_str(place.get("editorialSummary.text"))
+            + " "
+            + safe_str(place.get("reviewSummary.text"))
+            + " "
+            + safe_str(place.get("formattedAddress"))
+        ).lower()
+
+        matched = False
+        for pref in preferences_list:
+            if pref.lower() in combined_text:
+                grouped[pref].append(place)
+                matched = True
+                break
+
+        if not matched:
+            grouped["_others"].append(place)
+
+    return grouped
+
+
+def filter_new_places(data: List[Dict[str, Any]], container_set: set[str]) -> List[Dict[str, Any]]:
     """
-    try:
-        # Extract request data
-        destination = payload.get('destination')
-        days = int(payload.get('days', 0))
-        preferences = payload.get('preferences', [])
-        mode = payload.get('mode', 'ai')
-        custom_places = payload.get('places', [])
-
-        # --- Validate required fields ---
-        if not destination:
-            return {"success": False, "error": "Destination is required."}
-
-        # --- Prepare request data for Gemini service ---
-        request_data = {
-            "destination": destination,
-            "duration": days,
-            "preferences": preferences,
-            "mode": mode,
-        }
-        print("Request Data:", request_data)
-
-        # For custom mode, include selected places
-        if mode == "custom" and custom_places:
-            request_data["places"] = custom_places
-
-        # Add optional trip details
-        optional_fields = ["budget", "group_size", "travel_style", "start_date", "end_date"]
-        for field in optional_fields:
-            if field in payload:
-                request_data[field] = payload[field]
-
-        # --- Initialize services ---
-        gemini_service = GeminiItineraryService()
-        # data_enrichment = DataEnrichmentService()
-
-        logger.info(f"Generating itinerary for {destination}, {days} days, mode: {mode}")
-
-        # --- Generate itinerary using Gemini ---
-        base_itinerary = await gemini_service.generate_itinerary(request_data)
-        # print("Base plan:", base_itinerary)
-        # enriched_itinerary = await data_enrichment.enrich_itinerary(base_itinerary, destination)
-
-        # --- Save itinerary ---
-        itinerary_doc = {
-            "destination": destination,
-            "days": days,
-            "mode": payload.get('mode', 'ai'),
-            "preferences": payload.get('preferences', []),
-            "itinerary": 'enriched_itinerary',
-            "generated_at": datetime.now(),
-            "user_id": getattr(request, "user_id", None),
-        }
-
-        result = settings.MONGO_DB.itineraries.insert_one(itinerary_doc)
-        itinerary_doc["_id"] = str(result.inserted_id)
-
-        logger.info(f"Successfully generated itinerary for {destination}")
-
-        # --- Return response ---
-        print("Itinerary:", base_itinerary)
-       
-
-        return JsonResponse({
-            "success": True,
-            "itinerary": base_itinerary,
-            "itinerary_id": str(result.inserted_id),
-        })
-
-    except Exception as e:
-        logger.error(f"Itinerary generation failed: {str(e)}")
-        return {"success": False, "error": f"Failed to generate itinerary: {str(e)}"}
-
-def filter_new_places(data, container_set):
-    print(data, "\n")
+    Filter out places that have already been seen in container_set.
+    Works with either 'id' or 'place_id' keys.
+    """
     filtered = []
     for place in data:
-        pid = place.get("id")
+        pid = place.get("id") or place.get("place_id")
         if pid and pid not in container_set:
+            container_set.add(pid)
             filtered.append(place)
     return filtered
 
 
-@tour_router.get("/places/{destination}")
-def get_places_new(request, destination: str):
-    """
-    Fetches tourist_attractions, lodging, restaurants using NEW Places API.
-    Caches results in Mongo similar to your existing endpoint.
-    """
-
-    # 1. Check cache
-    cached = settings.MONGO_DB.new_places_cache.find_one({"destination": destination})
-    if cached:
-        cached["_id"] = str(cached["_id"])
-        return {"source": "cache", **cached}
-
-    # 2. Geocode destination
-    lat, lng, formatted = get_coordinates(destination)
-    if lat is None:
-        return {"error": formatted, "status": 404}
-
-    tourist_attractions = get_places_data(GOOGLE_API_KEY, lat, lng, ["tourist_attraction"])
-    lodging = get_places_data(GOOGLE_API_KEY, lat, lng, ["lodging"])
-    restaurants = get_places_data(GOOGLE_API_KEY, lat, lng, ["restaurant"])
-
-    # ===== FILTER OUT PLACES ALREADY FETCHED BY MAIN API =====
-    tourist_attractions = filter_new_places(tourist_attractions, PREF_TOURIST_SET)
-    lodging = filter_new_places(lodging, PREF_LODGING_SET)
-    restaurants = filter_new_places(restaurants, PREF_RESTAURANT_SET)
-
-    response = {
-        "destination": formatted,
-        "coordinates": {"lat": lat, "lng": lng},
-
-        # Only NEW places (excluding preference-based results)
-        "tourist_attractions": tourist_attractions,
-        "lodging": lodging,
-        "restaurants": restaurants,
-    }
-
-
-    # 4. Save to cache
-    inserted = settings.MONGO_DB.new_places_cache.insert_one(response)
-    response["_id"] = str(inserted.inserted_id)
-
-    return {"source": "api", **response}
-
-
-# FILTER FUNCTION (CLEAN + FIXED)
-def filter_textSearch_place_data(raw_data: dict[str, Any]) -> List[Dict[str, Any]]:
-    """
-    Extract specific fields from the raw Google Places JSON response.
-    """
+def filter_textSearch_place_data(raw_data: Dict[str, Any]) -> List[Dict[str, Any]]:
     filtered_places = []
 
     for place in raw_data.get("places", []):
@@ -286,6 +135,7 @@ def filter_textSearch_place_data(raw_data: dict[str, Any]) -> List[Dict[str, Any
             "name": place.get("name"),
             "id": place.get("id"),
             "types": place.get("types"),
+            "displayName": place.get("displayName", {}).get("text"),
             "internationalPhoneNumber": place.get("internationalPhoneNumber"),
             "formattedAddress": place.get("formattedAddress"),
             "editorialSummary.text": place.get("editorialSummary", {}).get("text"),
@@ -295,16 +145,22 @@ def filter_textSearch_place_data(raw_data: dict[str, Any]) -> List[Dict[str, Any
             "googleMapsLinks.reviewsUri": place.get("googleMapsLinks", {}).get("reviewsUri"),
             "googleMapsLinks.photosUri": place.get("googleMapsLinks", {}).get("photosUri"),
             "reviewSummary.text": place.get("reviewSummary", {}).get("text"),
+            # ADD THESE IMPORTANT FIELDS:
+            "rating": place.get("rating"),  # Overall rating (0-5)
+            "userRatingCount": place.get("userRatingCount"),  # Number of reviews
+            "priceLevel": place.get("priceLevel"),  # Price range indicator (0-4)
+            "websiteUri": place.get("websiteUri"),  # Official website
+            "location": place.get("location"),  # Coordinates (lat, lng)
+            "currentOpeningHours": place.get("currentOpeningHours", {}).get("weekdayDescriptions"),
+            "photos": [photo.get("name") for photo in place.get("photos", [])[:3]],  # First 3 photos
         }
         filtered_places.append(filtered_place)
 
     return filtered_places
 
-
-# 2. API CALLING FUNCTION
 def fetch_places_data(api_key: str, query: str) -> Dict[str, Any]:
     """
-    Calls the Google Places Text Search API with a corrected FieldMask.
+    Calls the Google Places Text Search API.
     """
     url = "https://places.googleapis.com/v1/places:searchText"
 
@@ -326,80 +182,330 @@ def fetch_places_data(api_key: str, query: str) -> Dict[str, Any]:
         return None
 
 
-def safe_str(value):
-    """Convert any type (dict, list, None, int) safely to string."""
-    if isinstance(value, dict):
-        return " ".join([safe_str(v) for v in value.values()])
-    if isinstance(value, list):
-        return " ".join([safe_str(v) for v in value])
-    if value is None:
-        return ""
-    return str(value)
-    
-
-def group_places_by_preference(places, preferences_list):
+# ======================================================================
+# DB HELPERS — STORE FULL RESPONSE PER SEARCH
+# ======================================================================
+def build_cache_key(destination: str, preferences_list: List[str], experience_type: str) -> str:
     """
-    Groups places based on whether the place-related text contains the preference.
+    Build a deterministic cache key based on destination + experience + preferences.
     """
-    grouped = {pref: [] for pref in preferences_list}
-    grouped["_others"] = []
+    norm_dest = destination.strip().lower()
+    norm_exp = str(experience_type).strip().lower()
+    norm_prefs = sorted([p.strip().lower() for p in preferences_list]) if preferences_list else []
+    return f"{norm_dest}__{norm_exp}__{'|'.join(norm_prefs)}"
 
-    for place in places:
-        # Combine all relevant text fields safely
-        combined_text = (
-            safe_str(place.get("name")) + " " +
-            safe_str(place.get("types")) + " " +
-            safe_str(place.get("editorialSummary.text")) + " " +
-            safe_str(place.get("reviewSummary.text")) + " " +
-            safe_str(place.get("formattedAddress"))
-        ).lower()
 
-        matched = False
-        for pref in preferences_list:
-            if pref.lower() in combined_text:
-                grouped[pref].append(place)
-                matched = True
-                break
+def save_trip_response(cache_key: str, response_data: Dict[str, Any]) -> None:
+    """
+    Save or update the full response for a given cache_key.
+    Stored in: settings.MONGO_DB.trip_places_cache
+    """
+    doc = dict(response_data)
+    doc["_id"] = cache_key
+    doc["cache_key"] = cache_key
+    doc["last_updated"] = datetime.now().isoformat()
 
-        if not matched:
-            grouped["_others"].append(place)
+    settings.MONGO_DB.trip_places_cache.update_one(
+        {"_id": cache_key},
+        {"$set": doc},
+        upsert=True,
+    )
+
+
+def load_trip_response(cache_key: str) -> Dict[str, Any] | None:
+    """
+    Load a previously saved response for this cache_key, if available.
+    """
+    doc = settings.MONGO_DB.trip_places_cache.find_one({"_id": cache_key})
+    if doc:
+        doc["_id"] = str(doc["_id"])
+        return doc
+    return None
+
+
+# ======================================================================
+# OLD NEARBY PLACES API (FALLBACK ONLY)
+# ======================================================================
+def get_places_by_type(place_type: str, lat: float, lng: float):
+    """
+    Old NearbySearch API used by /v1/places/{destination} as a final fallback.
+    """
+    URL = "https://maps.googleapis.com/maps/api/place/nearbysearch/json"
+    params = {
+        "location": f"{lat},{lng}",
+        "radius": 15000,
+        "type": place_type,
+        "key": GOOGLE_API_KEY,
+    }
+    try:
+        response = requests.get(URL, params=params)
+        data = response.json()
+        places = []
+
+        for place in data.get("results", [])[:15]:
+            place_id = place.get("place_id")
+            photos = place.get("photos", [])
+
+            # Get image URLs if available
+            image_urls = []
+            if photos:
+                for photo in photos[:3]:  # Get up to 3 images per place
+                    photo_reference = photo.get("photo_reference")
+                    if photo_reference:
+                        image_url = (
+                            f"https://maps.googleapis.com/maps/api/place/photo"
+                            f"?maxwidth=400&photoreference={photo_reference}&key={GOOGLE_API_KEY}"
+                        )
+                        image_urls.append(image_url)
+
+            places.append(
+                {
+                    "name": place.get("name"),
+                    "address": place.get("vicinity"),
+                    "rating": place.get("rating"),
+                    "user_ratings_total": place.get("user_ratings_total"),
+                    "location": place.get("geometry", {}).get("location", {}),
+                    "place_id": place_id,
+                    "types": place.get("types", []),
+                    "images": image_urls,
+                    "photo_references": [photo.get("photo_reference") for photo in photos],
+                }
+            )
+        return places
+
+    except Exception as e:
+        print(f"Error fetching {place_type} places: {e}")
+        return []
+
+
+@tour_router.get("/v1/places/{destination}")
+def tourist_places(request, destination: str):
+    """
+    Old fallback API: returns plain lists of tourist_attractions / lodging / restaurants.
+    Used only when newer flows fail completely.
+    """
+    try:
+        # Step 1: Check cache
+        cached_data = settings.MONGO_DB.cached_places.find_one({"destination": destination})
+        if cached_data:
+            cached_data["_id"] = str(cached_data["_id"])
+            print("Cached Data is used....")
+            return {"source": "cache", **cached_data}
+
+        # Step 2: Fetch from Google API
+        lat, lng, formatted_destination = get_coordinates(destination)
+        if lat is None or lng is None:
+            return {"error": formatted_destination, "status": 404}
+
+        tourist_places_list = get_places_by_type("tourist_attraction", lat, lng)
+        lodging_places = get_places_by_type("lodging", lat, lng)
+        restaurant_places = get_places_by_type("restaurant", lat, lng)
+
+        response_data = {
+            "destination": formatted_destination,
+            "coordinates": {"lat": lat, "lng": lng},
+            "tourist_attractions": tourist_places_list,
+            "lodging": lodging_places,
+            "restaurants": restaurant_places,
+            "last_updated": datetime.now().isoformat(),
+        }
+
+        # Step 3: Save to cache
+        result = settings.MONGO_DB.cached_places.insert_one(response_data)
+        response_data["_id"] = str(result.inserted_id)
+
+        return {"source": "api", **response_data}
+
+    except Exception as e:
+        return {"error": f"Internal server error: {str(e)}", "status": 500}
+
+
+# ======================================================================
+# ITINERARY GENERATION (UNCHANGED)
+# ======================================================================
+@tour_router.post("/itinerary/generate/")
+async def generate_itinerary(request, payload: dict = Body(...)):
+    """
+    Generate itinerary using Google Gemini API with optional custom places.
+    """
+    try:
+        destination = payload.get("destination")
+        days = int(payload.get("days", 0))
+        preferences = payload.get("preferences", [])
+        mode = payload.get("mode", "ai")
+        custom_places = payload.get("places", [])
+
+        if not destination:
+            return {"success": False, "error": "Destination is required."}
+
+        request_data = {
+            "destination": destination,
+            "duration": days,
+            "preferences": preferences,
+            "mode": mode,
+        }
+        print("Request Data:", request_data)
+
+        if mode == "custom" and custom_places:
+            request_data["places"] = custom_places
+
+        optional_fields = ["budget", "group_size", "travel_style", "start_date", "end_date"]
+        for field in optional_fields:
+            if field in payload:
+                request_data[field] = payload[field]
+
+        gemini_service = GeminiItineraryService()
+
+        logger.info(f"Generating itinerary for {destination}, {days} days, mode: {mode}")
+        base_itinerary = await gemini_service.generate_itinerary(request_data)
+
+        itinerary_doc = {
+            "destination": destination,
+            "days": days,
+            "mode": payload.get("mode", "ai"),
+            "preferences": payload.get("preferences", []),
+            "itinerary": "enriched_itinerary",
+            "generated_at": datetime.now(),
+            "user_id": getattr(request, "user_id", None),
+        }
+
+        result = settings.MONGO_DB.itineraries.insert_one(itinerary_doc)
+        itinerary_doc["_id"] = str(result.inserted_id)
+
+        logger.info(f"Successfully generated itinerary for {destination}")
+
+        return JsonResponse(
+            {
+                "success": True,
+                "itinerary": base_itinerary,
+                "itinerary_id": str(result.inserted_id),
+            }
+        )
+
+    except Exception as e:
+        logger.error(f"Itinerary generation failed: {str(e)}")
+        return {"success": False, "error": f"Failed to generate itinerary: {str(e)}"}
+
+
+# ======================================================================
+# NEW NEARBY PLACES API (SECONDARY)
+# ======================================================================
+@tour_router.get("/places/{destination}")
+def get_places_new(request, destination: str):
+    """
+    Secondary API using NEW Places API (NearbySearch via get_places_data).
+    Plain output (flat lists). Also used internally as part of fallback flow.
+    """
+
+    try:
+        # 1. Check cache
+        cached = settings.MONGO_DB.new_places_cache.find_one({"destination": destination})
+        if cached:
+            cached["_id"] = str(cached["_id"])
+            return {"source": "cache", **cached}
+
+        # 2. Geocode destination
+        lat, lng, formatted = get_coordinates(destination)
+        if lat is None:
+            return {"error": formatted, "status": 404}
+
+        # 3. Fetch using get_places_data
+        tourist_attractions = get_places_data(GOOGLE_API_KEY, lat, lng, ["tourist_attraction"])
+        lodging = get_places_data(GOOGLE_API_KEY, lat, lng, ["lodging"])
+        restaurants = get_places_data(GOOGLE_API_KEY, lat, lng, ["restaurant"])
+
+        # 4. Filter duplicates vs global sets (if any from main API)
+        ta_filtered = filter_new_places(tourist_attractions, PREF_TOURIST_SET)
+        lodging_filtered = filter_new_places(lodging, PREF_LODGING_SET)
+        restaurants_filtered = filter_new_places(restaurants, PREF_RESTAURANT_SET)
+
+        response = {
+            "destination": formatted,
+            "coordinates": {"lat": lat, "lng": lng},
+            "tourist_attractions": ta_filtered,
+            "lodging": lodging_filtered,
+            "restaurants": restaurants_filtered,
+            "last_updated": datetime.now().isoformat(),
+        }
+
+        inserted = settings.MONGO_DB.new_places_cache.insert_one(response)
+        response["_id"] = str(inserted.inserted_id)
+
+        return {"source": "api", **response}
+
+    except Exception as e:
+        print(f"Error in get_places_new: {e}")
+        return {"error": f"Internal server error: {str(e)}", "status": 500}
+
+
+def fetch_nearby_grouped(lat: float, lng: float, formatted_destination: str, preferences_list: List[str]):
+    """
+    Helper used by main API: fetch nearby places via get_places_data, dedupe using global sets,
+    and return grouped-by-preference structure.
+    """
+    tourist_attractions = get_places_data(GOOGLE_API_KEY, lat, lng, ["tourist_attraction"])
+    lodging = get_places_data(GOOGLE_API_KEY, lat, lng, ["lodging"])
+    restaurants = get_places_data(GOOGLE_API_KEY, lat, lng, ["restaurant"])
+
+    ta_filtered = filter_new_places(tourist_attractions, PREF_TOURIST_SET)
+    lodging_filtered = filter_new_places(lodging, PREF_LODGING_SET)
+    restaurants_filtered = filter_new_places(restaurants, PREF_RESTAURANT_SET)
+
+    grouped = {
+        "tourist_attractions": group_places_by_preference(ta_filtered, preferences_list),
+        "lodging": group_places_by_preference(lodging_filtered, preferences_list),
+        "restaurants": group_places_by_preference(restaurants_filtered, preferences_list),
+    }
 
     return grouped
 
 
-# 3. MAIN ENDPOINT
+# ======================================================================
+# MAIN PREFERENCE-BASED API
+# ======================================================================
 @tour_router.get("/preference-places/{destination}")
 def get_preference_based_places(request, destination: str, travel_preferences: str, experience_type: str):
     """
-    Get places based on user travel preferences and experience type.
+    MAIN API:
+    - Uses TextSearch with preference-based query generation.
+    - Randomly selects ONE query per category (tourist / restaurant / lodging).
+    - Groups results by preference (reference_places).
+    - Also calls secondary API logic (NearbySearch) to get recommended_places.
+    - Caches full combined response in trip_places_cache keyed by cache_key.
+    - Fallback order: main -> secondary -> old v1.
     """
+    # Parse preferences
+    preferences_list = [p.strip() for p in travel_preferences.split(",")] if travel_preferences else []
+
+    # Build cache key and try DB first
+    cache_key = build_cache_key(destination, preferences_list, experience_type)
+    cached_full = load_trip_response(cache_key)
+    if cached_full:
+        print("Using full trip cache for:", cache_key)
+        return {"source": "db", **cached_full}
+
+    # Reset global sets for this request
+    PREF_TOURIST_SET.clear()
+    PREF_LODGING_SET.clear()
+    PREF_RESTAURANT_SET.clear()
+
     try:
-        # Parse preferences
-        preferences_list = [p.strip() for p in travel_preferences.split(",")] if travel_preferences else []
-
-        # Cache key
-        cache_key = f"{destination}_{experience_type}_{hash(frozenset(preferences_list))}"
-
-        # Check cache
-        cached = settings.MONGO_DB.preference_places_cache.find_one({"cache_key": cache_key})
-        if cached:
-            cached["_id"] = str(cached["_id"])
-            print("Using cached preference-based places...")
-            return {"source": "cache", **cached}
-
-        # Get coordinates
+        # Geocode
         lat, lng, formatted_destination = get_coordinates(destination)
         if lat is None:
             return {"error": formatted_destination, "status": 404}
 
-        # Generate queries
-        tourist_queries = generate_tourist_queries(preferences_list, experience_type)
-        restaurant_queries = generate_restaurant_queries(preferences_list, experience_type)
-        lodging_queries = generate_lodging_queries(preferences_list, experience_type)
+        # Weather info for the point
+        weather_info = weather.get_forecast_weather(lat, lng)
 
-        tourist_attractions = []
-        restaurants = []
-        lodging = []
+        # Generate queries (using updated signatures)
+        tourist_queries = generate_tourist_queries(preferences_list, experience_type)
+        restaurant_queries = generate_restaurant_queries(experience_type, preferences_list)
+        lodging_queries = generate_lodging_queries(experience_type, preferences_list)
+
+        tourist_attractions: List[Dict[str, Any]] = []
+        restaurants: List[Dict[str, Any]] = []
+        lodging: List[Dict[str, Any]] = []
 
         # ===== TOURIST ATTRACTIONS (Random Query Selection) =====
         if tourist_queries:
@@ -410,11 +516,8 @@ def get_preference_based_places(request, destination: str, travel_preferences: s
             raw = fetch_places_data(GOOGLE_API_KEY, f"{chosen_query} in {destination}")
             if raw:
                 places = filter_textSearch_place_data(raw)
-
-                # Tag all places with the preference that produced it
                 for p in places:
                     p["preference_tag"] = chosen_pref
-
                 tourist_attractions.extend(places)
 
         # ===== RESTAURANTS (Random Query Selection) =====
@@ -426,10 +529,8 @@ def get_preference_based_places(request, destination: str, travel_preferences: s
             raw = fetch_places_data(GOOGLE_API_KEY, f"{chosen_query} in {destination}")
             if raw:
                 places = filter_textSearch_place_data(raw)
-
                 for p in places:
                     p["preference_tag"] = chosen_pref
-
                 restaurants.extend(places)
 
         # ===== LODGING (Random Query Selection) =====
@@ -441,24 +542,22 @@ def get_preference_based_places(request, destination: str, travel_preferences: s
             raw = fetch_places_data(GOOGLE_API_KEY, f"{chosen_query} in {destination}")
             if raw:
                 places = filter_textSearch_place_data(raw)
-
                 for p in places:
                     p["preference_tag"] = chosen_pref
-
                 lodging.extend(places)
 
-
-        # Remove duplicates
+        # Remove duplicates using global sets
         def remove_duplicates(data, limit=20, container_set=None):
             results = []
             count = 0
+            if container_set is None:
+                container_set = set()
 
             for place in data:
                 pid = place.get("id")
                 if not pid:
                     continue
 
-                # If not already seen globally
                 if pid not in container_set:
                     container_set.add(pid)
                     results.append(place)
@@ -469,26 +568,32 @@ def get_preference_based_places(request, destination: str, travel_preferences: s
 
             return results
 
-        tourist_attractions = remove_duplicates(
-            tourist_attractions, 
-            container_set=PREF_TOURIST_SET
-        )
-        restaurants = remove_duplicates(
-            restaurants, 
-            container_set=PREF_RESTAURANT_SET
-        )
-        lodging = remove_duplicates(
-            lodging, 
-            container_set=PREF_LODGING_SET
-        )
+        tourist_attractions = remove_duplicates(tourist_attractions, limit=20, container_set=PREF_TOURIST_SET)
+        restaurants = remove_duplicates(restaurants, limit=20, container_set=PREF_RESTAURANT_SET)
+        lodging = remove_duplicates(lodging, limit=20, container_set=PREF_LODGING_SET)
 
+        # Build REFERENCE places (grouped by preference)
+        reference_places = {
+            "tourist_attractions": group_places_by_preference(tourist_attractions, preferences_list),
+            "restaurants": group_places_by_preference(restaurants, preferences_list),
+            "lodging": group_places_by_preference(lodging, preferences_list),
+        }
 
-        print("This is logging from preference-based places endpoint.")
-        print(f"Tourist set {PREF_TOURIST_SET}")
-        print(f"Lodging set {PREF_RESTAURANT_SET}")
-        print(f"Restaurant set {PREF_RESTAURANT_SET}")
+        # Now call secondary logic (NearbySearch) for RECOMMENDED places
+        try:
+            recommended_places = fetch_nearby_grouped(lat, lng, formatted_destination, preferences_list)
+            secondary_source = "secondary"
+        except Exception as e2:
+            print(f"Secondary fetch_nearby_grouped failed: {e2}")
+            # If secondary fails, recommended is empty but structure preserved
+            recommended_places = {
+                "tourist_attractions": {"_others": []},
+                "restaurants": {"_others": []},
+                "lodging": {"_others": []},
+            }
+            secondary_source = "secondary_failed"
 
-        # Final response
+        # Prepare final response structure
         response_data = {
             "cache_key": cache_key,
             "destination": formatted_destination,
@@ -500,32 +605,99 @@ def get_preference_based_places(request, destination: str, travel_preferences: s
                 "restaurants": restaurant_queries,
                 "lodging": lodging_queries,
             },
-
-            # NEW GROUPED OUTPUT
-            "tourist_attractions": group_places_by_preference(tourist_attractions, preferences_list),
-            "restaurants": group_places_by_preference(restaurants, preferences_list),
-            "lodging": group_places_by_preference(lodging, preferences_list),
-
-            "last_updated": datetime.now().isoformat(),
+            "reference_places": reference_places,
+            "recommended_places": recommended_places,
+            "weather": weather_info,
+            "secondary_source": secondary_source,
         }
 
+        # Store full response in DB
+        save_trip_response(cache_key, response_data)
 
-        # Insert into cache
-        result = settings.MONGO_DB.preference_places_cache.insert_one(response_data)
-        response_data["_id"] = str(result.inserted_id)
-
-        print(f"Fetched {len(tourist_attractions)} attractions, {len(restaurants)} restaurants, {len(lodging)} lodging")
+        print(
+            f"Fetched {len(tourist_attractions)} attractions, "
+            f"{len(restaurants)} restaurants, {len(lodging)} lodging"
+        )
 
         return {"source": "api", **response_data}
 
-    except Exception as e:
-        print(f"Error: {str(e)}")
-        return {"error": f"Internal server error: {str(e)}", "status": 500}
+    except Exception as e_main:
+        print(f"Error in main preference-based flow: {str(e_main)}")
+
+        # ===================== FALLBACK 1: Secondary API ONLY =====================
+        try:
+            lat, lng, formatted_destination = get_coordinates(destination)
+            if lat is None:
+                raise RuntimeError("Geocoding failed in secondary fallback.")
+
+            weather_info = weather.get_forecast_weather(lat, lng)
+
+            preferences_list_fallback = preferences_list or []
+
+            recommended_places = fetch_nearby_grouped(lat, lng, formatted_destination, preferences_list_fallback)
+            reference_places = recommended_places  # Use same as reference if main failed
+
+            response_data = {
+                "cache_key": cache_key,
+                "destination": formatted_destination,
+                "coordinates": {"lat": lat, "lng": lng},
+                "travel_preferences": preferences_list_fallback,
+                "experience_type": experience_type,
+                "generated_queries": {},
+                "reference_places": reference_places,
+                "recommended_places": recommended_places,
+                "weather": weather_info,
+                "secondary_source": "secondary_only",
+            }
+
+            save_trip_response(cache_key, response_data)
+            return {"source": "fallback_secondary", **response_data}
+
+        except Exception as e_sec:
+            print(f"Secondary-only fallback failed: {e_sec}")
+
+            # ===================== FALLBACK 2: OLD V1 API =====================
+            v1 = tourist_places(request, destination)
+            if "error" in v1:
+                return v1
+
+            coords = v1.get("coordinates", {})
+            ref_places = {
+                "tourist_attractions": {"_others": v1.get("tourist_attractions", [])},
+                "restaurants": {"_others": v1.get("restaurants", [])},
+                "lodging": {"_others": v1.get("lodging", [])},
+            }
+            recommended_places = {
+                "tourist_attractions": {"_others": []},
+                "restaurants": {"_others": []},
+                "lodging": {"_others": []},
+            }
+
+            response_data = {
+                "cache_key": cache_key,
+                "destination": v1.get("destination", destination),
+                "coordinates": coords,
+                "travel_preferences": preferences_list,
+                "experience_type": experience_type,
+                "generated_queries": {},
+                "reference_places": ref_places,
+                "recommended_places": recommended_places,
+                "weather": None,
+                "secondary_source": "v1_fallback",
+            }
+
+            save_trip_response(cache_key, response_data)
+            return {"source": "fallback_v1", **response_data}
 
 
-# 4. SECOND ENDPOINT 
+# ======================================================================
+# TRIP-BASED REUSE ENDPOINT
+# ======================================================================
 @tour_router.get("/trip-places/{trip_id}")
 def get_places_for_trip(request, trip_id: str):
+    """
+    Reuse trip details stored in Mongo and call main preference-based logic.
+    """
     try:
         from bson import ObjectId
 
@@ -542,14 +714,13 @@ def get_places_for_trip(request, trip_id: str):
 
         preferences_string = ",".join(prefs)
 
-        # Reuse logic safely
         return get_preference_based_places(
             request,
             destination,
             preferences_string,
-            experience
+            experience,
         )
 
     except Exception as e:
-        print(f"Error: {str(e)}")
+        print(f"Error in get_places_for_trip: {str(e)}")
         return {"error": f"Internal server error: {str(e)}", "status": 500}
