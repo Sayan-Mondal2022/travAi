@@ -2,40 +2,44 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { apiPost } from "../../../lib/api";
+import { apiPost } from "@/lib/api";
+
+import DayTabs from "@/components/itinerary/DayTabs";
+import AttractionCard from "@/components/itinerary/AttractionCard";
+import FoodSection from "@/components/itinerary/FoodSection";
+import LodgingCard from "@/components/itinerary/LodgingCard";
+import SuggestionPanel from "@/components/itinerary/SuggestionPanel";
+import { safeText } from "@/components/itinerary/helpers";
+
 import {
   Loader,
-  MapPin,
-  Clock,
-  Calendar,
   AlertTriangle,
-  Sun,
-  Moon,
+  Calendar,
   DollarSign,
-  Utensils,
-  ShoppingBag,
-  Activity,
 } from "lucide-react";
 
 export default function ItineraryPage() {
   const router = useRouter();
+
+  const [activeTab, setActiveTab] = useState("itinerary");
+  const [activeDay, setActiveDay] = useState(0);
+
   const [itinerary, setItinerary] = useState(null);
+  const [tripData, setTripData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [tripData, setTripData] = useState(null);
 
+  // ======================================================
+  // FETCH ITINERARY FROM BACKEND
+  // ======================================================
   useEffect(() => {
-    const generateItinerary = async () => {
+    const fetchItinerary = async () => {
       try {
-        const savedTrip = JSON.parse(
-          localStorage.getItem("currentTrip") || "{}"
-        );
+        const savedTrip = JSON.parse(localStorage.getItem("currentTrip") || "{}");
         const mode = localStorage.getItem("itineraryMode") || "ai";
-        const selectedPlaces = JSON.parse(
-          localStorage.getItem("selectedPlaces") || "[]"
-        );
+        const selectedPlaces = JSON.parse(localStorage.getItem("selectedPlaces") || "[]");
 
-        if (!savedTrip || !savedTrip.to_location) {
+        if (!savedTrip.to_location) {
           throw new Error("No trip data found. Please create a trip first.");
         }
 
@@ -43,41 +47,22 @@ export default function ItineraryPage() {
 
         const payload = {
           destination: savedTrip.to_location,
-          days: savedTrip.duration_days,
+          duration_days: savedTrip.duration_days,
           preferences: savedTrip.travel_preferences || [],
-          mode: mode,
+          mode,
         };
 
         if (mode === "custom") {
-          if (selectedPlaces.length === 0) {
-            throw new Error(
-              "You haven't selected any places for your custom itinerary."
-            );
-          }
           payload.places = selectedPlaces;
         }
 
-        const response = await apiPost(
-          "/api/tour/itinerary/generate/",
-          payload
-        );
+        const res = await apiPost("/api/tour/itinerary/generate/", payload);
 
-        // ✅ Check for API success first
-        if (!response.success) {
-          throw new Error(response.error || "Failed to generate itinerary");
+        if (!res.success) {
+          throw new Error(res.error || "Failed to generate itinerary.");
         }
 
-        // ✅ Extract itinerary from the correct structure
-        const itineraryData = response?.itinerary;
-        if (
-          !itineraryData ||
-          !itineraryData.itinerary ||
-          !Array.isArray(itineraryData.itinerary)
-        ) {
-          throw new Error("Invalid itinerary data received from the server.");
-        }
-
-        setItinerary(itineraryData);
+        setItinerary(res.itinerary);
       } catch (err) {
         setError(err.message);
       } finally {
@@ -85,150 +70,171 @@ export default function ItineraryPage() {
       }
     };
 
-    generateItinerary();
+    fetchItinerary();
   }, []);
 
-  // 🌀 Loading State
-  if (loading) {
+  // ======================================================
+  // LOADING UI
+  // ======================================================
+  if (loading)
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <Loader className="w-12 h-12 text-blue-600 animate-spin mx-auto" />
-          <h1 className="mt-4 text-2xl font-bold text-gray-800">
-            Generating Your Itinerary...
-          </h1>
-          <p className="mt-2 text-gray-600">
-            Our AI is crafting the perfect trip for you. This might take a
-            moment.
-          </p>
-        </div>
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader className="w-10 h-10 text-blue-600 animate-spin" />
       </div>
     );
-  }
 
-  // ❌ Error State
-  if (error) {
+  // ======================================================
+  // ERROR UI
+  // ======================================================
+  if (error)
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="bg-white p-8 rounded-2xl shadow-xl text-center max-w-md">
-          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <AlertTriangle className="w-8 h-8 text-red-600" />
-          </div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">
-            An Error Occurred
-          </h2>
-          <p className="text-gray-600 mb-6">{error}</p>
+      <div className="min-h-screen flex items-center justify-center p-6">
+        <div className="bg-white p-8 rounded-xl shadow-xl max-w-md text-center">
+          <AlertTriangle className="w-12 h-12 text-red-500 mx-auto" />
+          <h1 className="text-xl font-bold mt-3 text-gray-800">Error</h1>
+          <p className="text-gray-600 mt-2">{safeText(error)}</p>
+
           <button
-            onClick={() => router.push("/trip/itinerary")}
-            className="bg-blue-600 text-white py-2 px-6 rounded-lg hover:bg-blue-700 font-semibold"
+            onClick={() => router.push("/trip")}
+            className="mt-6 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
           >
-            Go Back
+            Try Again
           </button>
         </div>
       </div>
     );
-  }
 
-  // Get the first day itinerary (since your response has array with one day)
+  // ==================================================================================
+  // MAIN RENDER
+  // ==================================================================================
   const itineraryDays = itinerary?.itinerary || [];
-  const firstDay = itineraryDays[0];
+  const suggestions = itinerary?.packing_suggestions;
 
-  // ✅ Success UI
   return (
-    <div className="min-h-screen bg-gray-100 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="bg-white rounded-2xl shadow-lg p-6 mb-8 text-center">
-          <h1 className="text-4xl font-extrabold text-gray-900">
-            Your Trip to {tripData?.to_location}
-          </h1>
-          <p className="mt-2 text-lg text-gray-600">
-            {firstDay?.theme || "Here's your personalized itinerary!"}
+    <div className="min-h-screen bg-gray-100 p-6">
+
+      {/* HEADER */}
+      <div className="bg-white rounded-xl shadow-lg p-6 mb-8 text-center">
+        <h1 className="text-4xl font-extrabold text-gray-900">
+          Trip to {safeText(tripData?.to_location)}
+        </h1>
+
+        {itinerary?.overall_summary && (
+          <p className="mt-3 text-lg text-gray-700">
+            {safeText(itinerary.overall_summary)}
           </p>
-          {itinerary?.overall_summary && (
-            <p className="mt-2 text-gray-700">{itinerary.overall_summary}</p>
-          )}
-        </div>
-
-        {/* Budget Section */}
-        {firstDay?.budget && (
-          <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center">
-              <DollarSign className="w-6 h-6 mr-2 text-green-600" />
-              Budget Estimate (for 2 people)
-            </h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {Object.entries(firstDay.budget).map(
-                ([key, value]) => (
-                  <div
-                    key={key}
-                    className="text-center p-3 bg-green-50 rounded-lg shadow-sm"
-                  >
-                    <p className="text-sm text-gray-600 capitalize">{key.replace(/_/g, " ")}</p>
-                    <p className="font-semibold text-gray-900">{value}</p>
-                  </div>
-                )
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Schedule Section */}
-        {firstDay?.schedule && (
-          <div className="space-y-6">
-            {Object.entries(firstDay.schedule).map(([timeSlot, activities], index) => (
-              <div key={index} className="bg-white rounded-2xl shadow-lg p-6">
-                <div className="flex items-center mb-4">
-                  {timeSlot.toLowerCase().includes("evening") ? (
-                    <Moon className="w-6 h-6 text-indigo-500 mr-2" />
-                  ) : (
-                    <Sun className="w-6 h-6 text-yellow-500 mr-2" />
-                  )}
-                  <h2 className="text-xl font-semibold text-gray-800 capitalize">{timeSlot}</h2>
-                </div>
-                <ul className="list-disc pl-6 text-gray-700 space-y-2">
-                  {activities.map((activity, i) => (
-                    <li key={i}>{activity}</li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Cuisine & Travel Tips */}
-        {(firstDay?.local_cuisine_recommendations || firstDay?.travel_tips) && (
-          <div className="mt-12 bg-white rounded-2xl shadow-lg p-6">
-            {firstDay?.local_cuisine_recommendations && (
-              <>
-                <h2 className="text-2xl font-bold text-gray-900 mb-3 flex items-center">
-                  <Utensils className="w-6 h-6 mr-2 text-orange-500" />
-                  Local Cuisine
-                </h2>
-                <ul className="list-disc pl-6 text-gray-700 mb-6">
-                  {firstDay.local_cuisine_recommendations.map((dish, i) => (
-                    <li key={i}>{dish}</li>
-                  ))}
-                </ul>
-              </>
-            )}
-
-            {firstDay?.travel_tips && (
-              <>
-                <h2 className="text-2xl font-bold text-gray-900 mb-3 flex items-center">
-                  <AlertTriangle className="w-6 h-6 mr-2 text-blue-600" />
-                  Travel Tips
-                </h2>
-                <ul className="list-disc pl-6 text-gray-700">
-                  {firstDay.travel_tips.map((tip, i) => (
-                    <li key={i}>{tip}</li>
-                  ))}
-                </ul>
-              </>
-            )}
-          </div>
         )}
       </div>
+
+      {/* TOP TABS: ITINERARY / SUGGESTIONS */}
+      <div className="flex gap-4 mb-6">
+        <button
+          onClick={() => setActiveTab("itinerary")}
+          className={`px-6 py-2 rounded-lg font-semibold border ${
+            activeTab === "itinerary"
+              ? "bg-blue-600 text-white border-blue-700"
+              : "bg-white text-gray-800 border-gray-300"
+          }`}
+        >
+          Itinerary
+        </button>
+
+        <button
+          onClick={() => setActiveTab("suggestions")}
+          className={`px-6 py-2 rounded-lg font-semibold border ${
+            activeTab === "suggestions"
+              ? "bg-blue-600 text-white border-blue-700"
+              : "bg-white text-gray-800 border-gray-300"
+          }`}
+        >
+          Suggestions
+        </button>
+      </div>
+
+      {/* =============================================== */}
+      {/* TAB CONTENT */}
+      {/* =============================================== */}
+      {activeTab === "itinerary" && (
+        <>
+          {/* DAY SELECTOR */}
+          <DayTabs
+            days={itineraryDays}
+            activeDay={activeDay}
+            setActiveDay={setActiveDay}
+          />
+
+          {/* ACTIVE DAY CONTENT */}
+          <div className="bg-white rounded-xl shadow-lg p-6">
+            <h2 className="text-3xl font-bold mb-4 flex items-center">
+              <Calendar className="w-7 h-7 text-blue-600 mr-2" />
+              Day {activeDay + 1}: {safeText(itineraryDays[activeDay]?.title)}
+            </h2>
+
+            {itineraryDays[activeDay]?.theme && (
+              <p className="text-gray-700 mb-4">
+                {safeText(itineraryDays[activeDay].theme)}
+              </p>
+            )}
+
+            {/* Schedule */}
+            {["morning", "afternoon", "evening"].map((slot) => (
+              <div key={slot} className="mb-8">
+                <h3 className="text-2xl font-semibold capitalize mb-3">
+                  {slot}
+                </h3>
+
+                {itineraryDays[activeDay].schedule[slot]?.map((place, i) => (
+                  <AttractionCard key={i} place={place} />
+                ))}
+              </div>
+            ))}
+
+            {/* FOOD */}
+            <FoodSection food={itineraryDays[activeDay]?.food_recommendations} />
+
+            {/* Lodging only on Day 1 */}
+            {activeDay === 0 &&
+              itineraryDays[0].lodging?.length > 0 && (
+                <div className="mt-10">
+                  <h3 className="text-2xl font-bold mb-4">Lodging Options</h3>
+                  {itineraryDays[0].lodging.map((h, i) => (
+                    <LodgingCard key={i} h={h} />
+                  ))}
+                </div>
+              )}
+
+            {/* Budget */}
+            {itineraryDays[activeDay]?.budget && (
+              <div className="mt-10 bg-green-50 p-5 rounded-xl border">
+                <h3 className="text-2xl font-bold text-gray-900 mb-4 flex items-center">
+                  <DollarSign className="w-6 h-6 text-green-700 mr-2" />
+                  Budget Estimate
+                </h3>
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {Object.entries(itineraryDays[activeDay].budget).map(
+                    ([k, v]) => (
+                      <div
+                        key={k}
+                        className="text-center bg-white p-4 shadow rounded-lg"
+                      >
+                        <p className="text-gray-600 capitalize">
+                          {safeText(k).replace(/_/g, " ")}
+                        </p>
+                        <p className="font-semibold text-gray-900">{v}</p>
+                      </div>
+                    )
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      {activeTab === "suggestions" && (
+        <SuggestionPanel suggestions={suggestions} />
+      )}
     </div>
   );
 }

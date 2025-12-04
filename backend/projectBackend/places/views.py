@@ -20,6 +20,7 @@ from places.services.place_queries import (
     generate_restaurant_queries,
     generate_lodging_queries,
 )
+from places.services.itinerary_helpers import build_daywise_place_plan
 
 # Ninja Routers
 tour_router = Router()
@@ -319,58 +320,112 @@ def tourist_places(request, destination: str):
     except Exception as e:
         return {"error": f"Internal server error: {str(e)}", "status": 500}
 
-
 # ======================================================================
-# ITINERARY GENERATION (UNCHANGED)
+# ITINERARY GENERATION (AI MODE WITH PLACES + WEATHER)
 # ======================================================================
 @tour_router.post("/itinerary/generate/")
 async def generate_itinerary(request, payload: dict = Body(...)):
     """
-    Generate itinerary using Google Gemini API with optional custom places.
+    Generate itinerary using Google Gemini API with:
+      - reference_places from preference-based search
+      - weather forecast (duration-aware)
+      - strict rules for attractions, restaurants, lodging
     """
     try:
         destination = payload.get("destination")
-        days = int(payload.get("days", 0))
-        preferences = payload.get("preferences", [])
+        days = int(payload.get("days") or payload.get("duration_days") or 0)
+        preferences = payload.get("preferences", []) or []
         mode = payload.get("mode", "ai")
         custom_places = payload.get("places", [])
+        experience_type = payload.get("experience_type", "moderate")
 
         if not destination:
             return {"success": False, "error": "Destination is required."}
 
+        if days <= 0:
+            days = 3
+
+        # ================== LOAD / FETCH PLACES CONTEXT ==================
+        preferences_list = [p.strip() for p in preferences] if preferences else []
+
+        # Try trip_places_cache first
+        cache_key = build_cache_key(destination, preferences_list, experience_type)
+        trip_places = load_trip_response(cache_key)
+
+        if not trip_places:
+            # Fallback: call main preference-based API internally to populate cache
+            prefs_string = ",".join(preferences_list)
+            trip_places = get_preference_based_places(
+                request, destination, prefs_string, experience_type
+            )
+            # If that endpoint returned wrapped structure, unwrap if needed
+            if trip_places and isinstance(trip_places, dict) and "reference_places" not in trip_places:
+                # It may have {"source": "...", ...}
+                pass
+
+            # Reload from cache in case it wrote via save_trip_response
+            trip_places = load_trip_response(cache_key) or trip_places
+
+        reference_places = trip_places.get("reference_places", {}) if isinstance(trip_places, dict) else {}
+        coords = trip_places.get("coordinates", {}) if isinstance(trip_places, dict) else {}
+
+        # ================== WEATHER (DURATION-AWARE) ==================
+        weather_info = trip_places.get("weather") if isinstance(trip_places, dict) else None
+        try:
+            lat = coords.get("lat")
+            lng = coords.get("lng")
+            if lat is None or lng is None:
+                lat, lng, _ = get_coordinates(destination)
+            if lat is not None and lng is not None:
+                # 3rd param = duration_days as you requested
+                weather_info = weather.get_forecast_weather(lat, lng, days)
+        except Exception as we:
+            print(f"Weather fetch (duration-aware) failed: {we}")
+
+        # ================== BUILD DAYWISE PLACE PLAN ==================
+        daywise_place_plan = []
+        if mode == "ai":
+            daywise_place_plan = build_daywise_place_plan(
+                reference_places=reference_places,
+                preferences_list=preferences_list,
+                days=days,
+            )
+
+        # ================== PREPARE REQUEST DATA FOR GEMINI ==================
         request_data = {
             "destination": destination,
-            "duration": days,
-            "preferences": preferences,
+            "duration_days": days,
+            "preferences": preferences_list,
             "mode": mode,
+            "places_plan": daywise_place_plan,
+            "weather": weather_info,
+            "budget": payload.get("budget", "moderate"),
+            "group_size": payload.get("group_size") or payload.get("people_count", 1),
+            "travel_style": payload.get("travel_style") or experience_type,
         }
-        print("Request Data:", request_data)
 
         if mode == "custom" and custom_places:
             request_data["places"] = custom_places
 
-        optional_fields = ["budget", "group_size", "travel_style", "start_date", "end_date"]
-        for field in optional_fields:
-            if field in payload:
-                request_data[field] = payload[field]
-
         gemini_service = GeminiItineraryService()
 
-        logger.info(f"Generating itinerary for {destination}, {days} days, mode: {mode}")
+        logger.info(
+            f"Generating itinerary for {destination}, {days} days, mode: {mode}"
+        )
         base_itinerary = await gemini_service.generate_itinerary(request_data)
 
+        # Store metadata (we are not storing full AI JSON to Mongo for now)
         itinerary_doc = {
             "destination": destination,
             "days": days,
-            "mode": payload.get("mode", "ai"),
-            "preferences": payload.get("preferences", []),
-            "itinerary": "enriched_itinerary",
+            "mode": mode,
+            "preferences": preferences_list,
+            "itinerary": "ai_generated",
             "generated_at": datetime.now(),
             "user_id": getattr(request, "user_id", None),
         }
 
         result = settings.MONGO_DB.itineraries.insert_one(itinerary_doc)
-        itinerary_doc["_id"] = str(result.inserted_id)
 
         logger.info(f"Successfully generated itinerary for {destination}")
 

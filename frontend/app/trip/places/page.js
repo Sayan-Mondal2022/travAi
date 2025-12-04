@@ -253,7 +253,7 @@ export default function PlacesPage() {
 
         {/* RIGHT: AI ITINERARY BUTTON */}
         <button
-          onClick={() => router.push("/trip/itinerary?mode=ai")}
+          onClick={() => router.push("/trip/generate?mode=ai")}
           className="px-4 py-2 bg-purple-600 text-white rounded-lg shadow hover:bg-purple-700"
         >
           Generate AI Itinerary

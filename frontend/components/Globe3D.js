@@ -53,7 +53,7 @@ export default function Globe3D({ startPoint, endPoint }) {
     const script = document.createElement("script");
     script.src =
       `https://maps.googleapis.com/maps/api/js?key=${
-        process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+        process.env.NEXT_PUBLIC_GOOGLE_KEY
       }&v=alpha&libraries=maps3d&channel=2`;
 
     script.async = true;
