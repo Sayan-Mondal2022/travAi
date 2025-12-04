@@ -51,10 +51,12 @@ Before running this project, please make sure the required tools and technologie
     # Navigate to frontend directory
     cd frontend
     
-    # Install dependencies
+    # Install dependencies!
     npm install
-    
-    # Start development server
+    #!
+    npm install firebase nookies js-cookie #Authentication Firebase 
+    #!
+    # Start development server!
     npm run dev
     ```
 
@@ -105,6 +107,15 @@ Before running this project, please make sure the required tools and technologie
     NEXT_PUBLIC_API_URL=http://localhost:8000
     NEXT_PUBLIC_APP_NAME=TravAi
     NEXT_PUBLIC_GOOGLE_KEY=GOOGLE_API_KEY
+    ```
+    
+    ```bash
+  NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key
+  NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
+  NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
+  NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
+  NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+  NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
     ```
 
 - Backend (backend/.env)
