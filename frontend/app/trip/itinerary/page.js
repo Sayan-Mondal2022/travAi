@@ -95,7 +95,7 @@ export default function ItineraryPage() {
     // Debug: Check what's in localStorage
     const storedPlaces = localStorage.getItem("selected_places");
     const storedTripId = localStorage.getItem("selected_places_trip_id");
-    
+
     console.log("Loading places from localStorage...");
     console.log("Stored places:", storedPlaces);
     console.log("Stored trip ID:", storedTripId);
@@ -105,7 +105,7 @@ export default function ItineraryPage() {
         const parsed = JSON.parse(storedPlaces);
         console.log("Parsed places:", parsed);
         console.log("Number of places:", parsed.length);
-        
+
         setSelectedPlaces(parsed);
         setDebugInfo(`Loaded ${parsed.length} places from localStorage`);
       } catch (e) {
@@ -142,31 +142,35 @@ export default function ItineraryPage() {
     const types = p.types || [];
     // Tourist places include tourist_attraction, landmarks, parks, museums, etc.
     return (
-      types.includes("tourist_attraction") ||
-      types.includes("historical_landmark") ||
-      types.includes("historical_place") ||
-      types.includes("national_park") ||
-      types.includes("park") ||
-      types.includes("museum") ||
-      types.includes("point_of_interest") ||
-      types.includes("market") ||
-      types.includes("hiking_area") ||
-      types.includes("adventure_sports_center") ||
-      types.includes("travel_agency") ||
-      types.includes("establishment")
-    ) && !types.includes("lodging") && !types.includes("restaurant");
+      (types.includes("tourist_attraction") ||
+        types.includes("historical_landmark") ||
+        types.includes("historical_place") ||
+        types.includes("national_park") ||
+        types.includes("park") ||
+        types.includes("museum") ||
+        types.includes("point_of_interest") ||
+        types.includes("market") ||
+        types.includes("hiking_area") ||
+        types.includes("adventure_sports_center") ||
+        types.includes("travel_agency") ||
+        types.includes("establishment")) &&
+      !types.includes("lodging") &&
+      !types.includes("restaurant")
+    );
   });
-  
-  const lodgingPlaces = selectedPlaces.filter((p) =>
-    p.types?.includes("lodging") || 
-    p.types?.includes("hotel") ||
-    p.types?.includes("resort_hotel")
+
+  const lodgingPlaces = selectedPlaces.filter(
+    (p) =>
+      p.types?.includes("lodging") ||
+      p.types?.includes("hotel") ||
+      p.types?.includes("resort_hotel")
   );
-  
-  const restaurantPlaces = selectedPlaces.filter((p) =>
-    p.types?.includes("restaurant") ||
-    p.types?.includes("cafe") ||
-    p.types?.includes("bar")
+
+  const restaurantPlaces = selectedPlaces.filter(
+    (p) =>
+      p.types?.includes("restaurant") ||
+      p.types?.includes("cafe") ||
+      p.types?.includes("bar")
   );
 
   const tabMapping = {
@@ -212,31 +216,61 @@ export default function ItineraryPage() {
     setLoading(true);
 
     try {
-      const url = `${process.env.NEXT_PUBLIC_API_URL}/api/tour/itinerary/generate/`;
+      const url = `${process.env.NEXT_PUBLIC_API_URL}/api/tour/itinerary/custom/`;
 
       const payload = {
         destination,
         days,
         preferences: travel_preferences,
         mode: "custom",
+
         places: selectedPlaces.map((p) => ({
+          // ---------- BASIC FIELDS ----------
+          id: p.id || p.place_id,
           name: p.displayName,
-          address: p.formattedAddress,
-          preference: p.preference_tag,
+          displayName: p.displayName,
+          formattedAddress: p.formattedAddress,
           types: p.types || [],
           rating: p.rating || null,
           userRatingCount: p.userRatingCount || null,
-          editorialSummary: p["editorialSummary.text"] || null,
-          reviewSummary: p["reviewSummary.text"]?.text || null,
-          landmarks: p["addressDescriptor.landmarks"] || [],
-          googleMaps: {
+
+          // ---------- SUMMARIES ----------
+          // Editorial Summary (Google → editorialSummary.text)
+          editorialSummary: p["editorialSummary.text"]
+            ? { text: p["editorialSummary.text"] }
+            : p.editorialSummary || null,
+
+          // Review Summary (Google → reviewSummary.text)
+          reviewSummary: p["reviewSummary.text"]
+            ? { text: p["reviewSummary.text"] }
+            : p.reviewSummary || null,
+
+          // ---------- LANDMARKS ----------
+          addressDescriptor: {
+            landmarks: p["addressDescriptor.landmarks"] || [],
+          },
+
+          // ---------- GOOGLE MAPS LINKS ----------
+          googleMapsLinks: {
             placeUri: p["googleMapsLinks.placeUri"] || null,
             directionsUri: p["googleMapsLinks.directionsUri"] || null,
             reviewsUri: p["googleMapsLinks.reviewsUri"] || null,
             photosUri: p["googleMapsLinks.photosUri"] || null,
           },
+
+          // ---------- LOCATION ----------
+          location: p.location ||
+            p.geometry?.location || {
+              lat: p.lat || null,
+              lng: p.lng || null,
+            },
+
+          // ---------- PHOTOS ----------
+          photos: p.photos || [],
         })),
       };
+
+      console.log("Sending payload (custom):", payload);
 
       const res = await axios.post(url, payload);
 
@@ -246,12 +280,18 @@ export default function ItineraryPage() {
           JSON.stringify(res.data.itinerary)
         );
 
+        console.log("===== SELECTED PLACES (Frontend) =====");
+        console.log(JSON.stringify(selectedPlaces, null, 2));
+
+        console.log("===== GENERATED ITINERARY (AI Output) =====");
+        console.log(JSON.stringify(res.data.itinerary, null, 2));
+
         router.push("/trip/generate");
       } else {
-        alert("Error generating itinerary");
+        alert(res.data.error || "Error generating itinerary");
       }
     } catch (e) {
-      console.error(e);
+      console.error("Error generating itinerary:", e);
       alert("Failed to generate itinerary.");
     }
 
@@ -276,9 +316,8 @@ export default function ItineraryPage() {
         <div>
           <p className="text-sm font-mono">{debugInfo}</p>
           <p className="text-xs text-gray-600 mt-1">
-            Total in state: {selectedPlaces.length} | 
-            Tourist: {touristPlaces.length} | 
-            Lodging: {lodgingPlaces.length} | 
+            Total in state: {selectedPlaces.length} | Tourist:{" "}
+            {touristPlaces.length} | Lodging: {lodgingPlaces.length} |
             Restaurants: {restaurantPlaces.length}
           </p>
         </div>
@@ -306,19 +345,39 @@ export default function ItineraryPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <p><b>From:</b> {from_location}</p>
-            <p><b>To:</b> {to_location}</p>
-            <p><b>Start Date:</b> {start_date}</p>
-            <p><b>End Date:</b> {end_date}</p>
-            <p><b>Duration:</b> {days} days</p>
+            <p>
+              <b>From:</b> {from_location}
+            </p>
+            <p>
+              <b>To:</b> {to_location}
+            </p>
+            <p>
+              <b>Start Date:</b> {start_date}
+            </p>
+            <p>
+              <b>End Date:</b> {end_date}
+            </p>
+            <p>
+              <b>Duration:</b> {days} days
+            </p>
           </div>
 
           <div>
-            <p><b>People Count:</b> {people_count}</p>
-            <p><b>Travel Type:</b> {capitalizeWords(travel_type)}</p>
-            <p><b>Transport Mode:</b> {capitalizeWords(mode_of_transport)}</p>
-            <p><b>Experience:</b> {capitalizeWords(experience_type)}</p>
-            <p><b>Budget:</b> {capitalizeWords(budget)}</p>
+            <p>
+              <b>People Count:</b> {people_count}
+            </p>
+            <p>
+              <b>Travel Type:</b> {capitalizeWords(travel_type)}
+            </p>
+            <p>
+              <b>Transport Mode:</b> {capitalizeWords(mode_of_transport)}
+            </p>
+            <p>
+              <b>Experience:</b> {capitalizeWords(experience_type)}
+            </p>
+            <p>
+              <b>Budget:</b> {capitalizeWords(budget)}
+            </p>
           </div>
         </div>
 

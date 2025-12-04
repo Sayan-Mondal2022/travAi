@@ -780,3 +780,144 @@ def get_places_for_trip(request, trip_id: str):
     except Exception as e:
         print(f"Error in get_places_for_trip: {str(e)}")
         return {"error": f"Internal server error: {str(e)}", "status": 500}
+
+
+@tour_router.post("/itinerary/custom/")
+async def generate_custom_itinerary(request, payload: dict = Body(...)):
+    """
+    CUSTOM MODE PIPELINE → VALIDATION → BUILD places_plan → CALL Gemini AI
+    """
+
+    destination = payload.get("destination")
+    days = int(payload.get("days", 1))
+    preferences = payload.get("preferences", [])
+    custom_places = payload.get("places", [])
+    budget = payload.get("budget", "moderate")
+    group_size = payload.get("group_size", 1)
+    travel_style = payload.get("experience_type", "balanced")
+
+    days = min(days, 6)
+
+    if not destination:
+        return {"success": False, "error": "Destination is required."}
+
+    if not custom_places:
+        return {"success": False, "error": "You must select at least some places."}
+
+    # -----------------------------------
+    # CLASSIFICATION
+    # -----------------------------------
+    tourist = []
+    lodging = []
+    restaurants = []
+
+    for p in custom_places:
+        types = p.get("types", [])
+        if "lodging" in types:
+            lodging.append(p)
+        elif "restaurant" in types:
+            restaurants.append(p)
+        else:
+            tourist.append(p)
+
+    # -----------------------------------
+    # VALIDATIONS
+    # -----------------------------------
+
+    # Lodging
+    if len(lodging) == 0:
+        return {"success": False, "error": "Please select at least one lodging option."}
+
+    # Tourist count
+    required = 3 * days
+    if len(tourist) < required:
+        return {
+            "success": False,
+            "error": f"You selected {len(tourist)} tourist places but need at least {required} places for {days} days."
+        }
+
+    # Restaurants
+    if len(restaurants) == 0:
+        return {"success": False, "error": "At least one restaurant is required."}
+
+    # -----------------------------------
+    # WEATHER FETCH
+    # -----------------------------------
+    lat, lng, _ = get_coordinates(destination)
+    weather_info = weather.get_forecast_weather(lat, lng, days)
+
+    # -----------------------------------
+    # BUILD places_plan (this is what AI uses)
+    # -----------------------------------
+    from places.services.itinerary_helpers import _simplify_place_for_ai
+
+    daywise_plan = []
+    tourist_idx = 0
+
+    lodging_ai = [_simplify_place_for_ai(h) for h in lodging[:5]]
+    restaurants_ai = [_simplify_place_for_ai(r) for r in restaurants]
+
+    for d in range(days):
+        todays_attractions = tourist[tourist_idx : tourist_idx + 3]
+        tourist_idx += 3
+
+        todays_ai = [_simplify_place_for_ai(p) for p in todays_attractions]
+
+        rest_block = {
+            "breakfast": restaurants_ai[:3],
+            "lunch": restaurants_ai[:3],
+            "dinner": restaurants_ai[:3],
+        }
+
+        daywise_plan.append({
+            "day": d + 1,
+            "attractions": todays_ai,
+            "restaurants": rest_block,
+            "lodging_options": lodging_ai if d == 0 else [],
+        })
+
+    # -----------------------------------
+    # PREPARE AI REQUEST PAYLOAD
+    # -----------------------------------
+    request_data = {
+        "destination": destination,
+        "duration_days": days,
+        "preferences": preferences,
+        "budget": budget,
+        "group_size": group_size,
+        "travel_style": travel_style,
+
+        # Key AI inputs:
+        "places_plan": daywise_plan,
+        "weather": weather_info,
+
+        # To let Gemini know mode = custom
+        "mode": "custom"
+    }
+
+    # -----------------------------------
+    # CALL GEMINI AI
+    # -----------------------------------
+    gemini = GeminiItineraryService()
+    ai_itinerary = await gemini.generate_itinerary(request_data)
+
+    # -----------------------------------
+    # SAVE METADATA
+    # -----------------------------------
+    doc = {
+        "destination": destination,
+        "days": days,
+        "mode": "custom",
+        "preferences": preferences,
+        "generated_at": datetime.now(),
+    }
+    result = settings.MONGO_DB.itineraries.insert_one(doc)
+
+    # -----------------------------------
+    # FINAL RESPONSE
+    # -----------------------------------
+    return JsonResponse({
+        "success": True,
+        "itinerary": ai_itinerary,
+        "itinerary_id": str(result.inserted_id),
+    })
