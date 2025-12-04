@@ -11,7 +11,6 @@ export default function ItineraryPage() {
 
   const [selectedPlaces, setSelectedPlaces] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [itinerary, setItinerary] = useState(null);
 
   const [activeTab, setActiveTab] = useState("tourist");
 
@@ -48,7 +47,6 @@ export default function ItineraryPage() {
       HELPERS
   ------------------------------------------------------ */
 
-  // Capitalize every word (for summary fields, types, etc.)
   const capitalizeWords = (str) => {
     if (!str || typeof str !== "string") return str || "";
     return str
@@ -61,7 +59,6 @@ export default function ItineraryPage() {
       .join(" ");
   };
 
-  // Rating stars
   const stars = (rating) => {
     if (!rating) return null;
     const full = Math.floor(rating);
@@ -126,18 +123,17 @@ export default function ItineraryPage() {
   const placesToShow = tabMapping[activeTab] || [];
 
   /* -----------------------------------------------------
-      HOVER EXPANSION (same behavior as places page)
+      HOVER EXPANSION PANEL
   ------------------------------------------------------ */
   const handleMouseEnter = (id) => {
     hoverTimeout.current = setTimeout(() => {
       setHovered(id);
-    }, 2000); // 2 seconds delay
+    }, 2000);
   };
 
   const handleMouseLeave = () => {
     if (hoverTimeout.current) {
       clearTimeout(hoverTimeout.current);
-      hoverTimeout.current = null;
     }
     setHovered(null);
   };
@@ -151,7 +147,7 @@ export default function ItineraryPage() {
   }, []);
 
   /* -----------------------------------------------------
-      GENERATE ITINERARY (Custom using selected places)
+      GENERATE ITINERARY → Redirect to /trip/generate
   ------------------------------------------------------ */
   const generateItinerary = async () => {
     if (!destination) {
@@ -178,18 +174,12 @@ export default function ItineraryPage() {
           name: p.displayName,
           address: p.formattedAddress,
           preference: p.preference_tag,
-
-          // ⭐ NEW FIELDS ADDED
           types: p.types || [],
-
           rating: p.rating || null,
           userRatingCount: p.userRatingCount || null,
-
           editorialSummary: p["editorialSummary.text"] || null,
           reviewSummary: p["reviewSummary.text"]?.text || null,
-
           landmarks: p["addressDescriptor.landmarks"] || [],
-
           googleMaps: {
             placeUri: p["googleMapsLinks.placeUri"] || null,
             directionsUri: p["googleMapsLinks.directionsUri"] || null,
@@ -202,7 +192,14 @@ export default function ItineraryPage() {
       const res = await axios.post(url, payload);
 
       if (res.data.success) {
-        setItinerary(res.data.itinerary);
+        // ⭐ Store itinerary so /trip/generate can display it
+        localStorage.setItem(
+          "generated_itinerary",
+          JSON.stringify(res.data.itinerary)
+        );
+
+        // ⭐ Redirect to your generate/page.js
+        router.push("/trip/generate");
       } else {
         alert("Error generating itinerary");
       }
@@ -215,7 +212,7 @@ export default function ItineraryPage() {
   };
 
   /* =====================================================
-      UI
+      UI (SAME AS BEFORE)
   ====================================================== */
   return (
     <div className="min-h-screen p-6 max-w-6xl mx-auto">
@@ -228,47 +225,25 @@ export default function ItineraryPage() {
         Back to Places
       </button>
 
-      {/* ---------------------------------------------------
-            TRIP SUMMARY
-      ---------------------------------------------------- */}
+      {/* Trip Summary */}
       <div className="border rounded-xl shadow p-6 bg-blue-50 mb-8">
         <h2 className="text-2xl font-bold mb-4">Trip Overview</h2>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <p>
-              <b>From:</b> {from_location}
-            </p>
-            <p>
-              <b>To:</b> {to_location}
-            </p>
-            <p>
-              <b>Start Date:</b> {start_date}
-            </p>
-            <p>
-              <b>End Date:</b> {end_date}
-            </p>
-            <p>
-              <b>Duration:</b> {days} days
-            </p>
+            <p><b>From:</b> {from_location}</p>
+            <p><b>To:</b> {to_location}</p>
+            <p><b>Start Date:</b> {start_date}</p>
+            <p><b>End Date:</b> {end_date}</p>
+            <p><b>Duration:</b> {days} days</p>
           </div>
 
           <div>
-            <p>
-              <b>People Count:</b> {people_count}
-            </p>
-            <p>
-              <b>Travel Type:</b> {capitalizeWords(travel_type)}
-            </p>
-            <p>
-              <b>Transport Mode:</b> {capitalizeWords(mode_of_transport)}
-            </p>
-            <p>
-              <b>Experience:</b> {capitalizeWords(experience_type)}
-            </p>
-            <p>
-              <b>Budget:</b> {capitalizeWords(budget)}
-            </p>
+            <p><b>People Count:</b> {people_count}</p>
+            <p><b>Travel Type:</b> {capitalizeWords(travel_type)}</p>
+            <p><b>Transport Mode:</b> {capitalizeWords(mode_of_transport)}</p>
+            <p><b>Experience:</b> {capitalizeWords(experience_type)}</p>
+            <p><b>Budget:</b> {capitalizeWords(budget)}</p>
           </div>
         </div>
 
@@ -278,9 +253,7 @@ export default function ItineraryPage() {
         </p>
       </div>
 
-      {/* ---------------------------------------------------
-            TABS
-      ---------------------------------------------------- */}
+      {/* Tabs */}
       <div className="flex gap-6 border-b mb-6 pb-2 text-lg font-medium">
         <button
           onClick={() => setActiveTab("tourist")}
@@ -316,26 +289,22 @@ export default function ItineraryPage() {
         </button>
       </div>
 
-      {/* ---------------------------------------------------
-            PLACES DISPLAY (with PHOTOS + SUMMARY)
-      ---------------------------------------------------- */}
+      {/* Place Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
         {placesToShow.length === 0 && (
-          <p className="text-gray-600 col-span-full">
-            No places in this category.
-          </p>
+          <p className="text-gray-600 col-span-full">No places in this category.</p>
         )}
 
         {placesToShow.map((place, i) => {
           const id = place.id || place.place_id;
           const photos = place.photos;
           const address = place.formattedAddress;
-          const typesRaw = place.types || [];
-          const types = typesRaw.map(capitalizeWords).join(", ");
+          const types = (place.types || [])
+            .map(capitalizeWords)
+            .join(", ");
           const editorial = place["editorialSummary.text"];
           const reviewSummary = place["reviewSummary.text"]?.text;
           const rating = place.rating;
-
           const placeLink = place["googleMapsLinks.placeUri"];
           const directionLink = place["googleMapsLinks.directionsUri"];
           const reviewsLink = place["googleMapsLinks.reviewsUri"];
@@ -381,7 +350,7 @@ export default function ItineraryPage() {
                 </button>
               </div>
 
-              {/* ----------------- HOVER EXPANDED PANEL ----------------- */}
+              {/* Hover Panel */}
               {hovered === id && (
                 <div
                   className="
@@ -392,7 +361,6 @@ export default function ItineraryPage() {
                   "
                   onMouseLeave={handleMouseLeave}
                 >
-                  {/* Close Button */}
                   <button
                     onClick={() => setHovered(null)}
                     className="absolute top-4 right-6 text-gray-700 hover:text-black text-3xl font-bold"
@@ -401,7 +369,6 @@ export default function ItineraryPage() {
                   </button>
 
                   <div className="max-w-5xl mx-auto flex gap-10 mt-6">
-                    {/* LEFT SIDE */}
                     <div className="w-2/3 pr-4">
                       <h2 className="text-3xl font-bold mb-4">
                         {place.displayName}
@@ -424,12 +391,6 @@ export default function ItineraryPage() {
                             </span>
                           )}
                         </div>
-                      )}
-
-                      {types && (
-                        <p className="text-sm mb-3">
-                          <b>Types:</b> {types}
-                        </p>
                       )}
 
                       {editorial && (
@@ -475,7 +436,6 @@ export default function ItineraryPage() {
                       )}
                     </div>
 
-                    {/* RIGHT SIDE LANDMARKS */}
                     <div className="w-1/3 bg-gray-50 p-6 rounded-xl border">
                       <h4 className="text-xl font-semibold mb-3 flex items-center gap-2">
                         <Landmark className="w-5 h-5" />
@@ -512,9 +472,7 @@ export default function ItineraryPage() {
         })}
       </div>
 
-      {/* ---------------------------------------------------
-            GENERATE BUTTON
-      ---------------------------------------------------- */}
+      {/* Generate Button */}
       <div className="text-center">
         <button
           onClick={generateItinerary}
@@ -524,20 +482,6 @@ export default function ItineraryPage() {
           {loading ? "Generating..." : "Generate Itinerary"}
         </button>
       </div>
-
-      {/* ---------------------------------------------------
-            DISPLAY GENERATED ITINERARY
-      ---------------------------------------------------- */}
-      {itinerary && (
-        <div className="border p-6 rounded shadow bg-white">
-          <h2 className="text-2xl font-bold mb-4">Generated Itinerary</h2>
-          <pre className="whitespace-pre-wrap text-gray-800">
-            {typeof itinerary === "string"
-              ? itinerary
-              : JSON.stringify(itinerary, null, 2)}
-          </pre>
-        </div>
-      )}
     </div>
   );
 }

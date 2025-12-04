@@ -136,15 +136,8 @@ You may invent minor filler details (like "walk around the neighborhood") but ma
      - directions_url
 
 4. LANDMARKS, TYPES & SUMMARIES
-   - For EACH main attraction in the schedule (non-meal_break entries):
-     - Copy relevant details from places_plan into the schedule items:
-       - types
-       - landmarks (as a short list)
-       - editorial_summary
-       - review_summary
-       - rating
-       - google_maps_url (if available)
-   - Do NOT invent random landmarks; re-use from input.
+    - For each attraction, ONLY include the "name", "place_id" (if available), and a very brief "one_sentence_reason" for visiting.
+    - Do NOT copy "editorial_summary", "review_summary", or "landmarks" arrays into the output. Keep the JSON small.
 
 5. WEATHER-BASED CLOTHING & PACKING SUGGESTIONS
    - Use the forecast data to infer:
