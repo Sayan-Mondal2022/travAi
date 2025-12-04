@@ -101,11 +101,10 @@ You may invent minor filler details (like "walk around the neighborhood") but ma
    - In the FOOD SECTION (per day):
        - Output a "food_recommendations" object:
          "food_recommendations": {{
-            "breakfast": [ <list of 1–3 restaurants> ],
-            "lunch": [ <list of 1–3 restaurants> ],
-            "dinner": [ <list of 1–3 restaurants> ]
+            "breakfast": [ <list of 1-3 restaurants> ],
+            "lunch": [ ... ],
+            "dinner": [ ... ]
          }}
-       - Prefer to use **3 distinct restaurants per meal** when at least 3 restaurants are available in the input for that meal.
        - Each restaurant object must come from that day's "restaurants" list.
        - For each restaurant object, include:
          - name
@@ -118,7 +117,6 @@ You may invent minor filler details (like "walk around the neighborhood") but ma
          - landmarks (from input)
          - google_maps_url
          - directions_url
-         - location: {{ "lat": <number>, "lng": <number> }}
 
 3. LODGING (ONLY DAY 1)
    - For DAY 1 only, you are given "lodging_options" (3–5 items).
@@ -136,7 +134,6 @@ You may invent minor filler details (like "walk around the neighborhood") but ma
      - landmarks
      - google_maps_url
      - directions_url
-     - location: {{ "lat": <number>, "lng": <number> }}
 
 4. LANDMARKS, TYPES & SUMMARIES
    - For EACH main attraction in the schedule (non-meal_break entries):
@@ -147,8 +144,6 @@ You may invent minor filler details (like "walk around the neighborhood") but ma
        - review_summary
        - rating
        - google_maps_url (if available)
-       - directions_url (if available)
-       - location: {{ "lat": <number>, "lng": <number> }}
    - Do NOT invent random landmarks; re-use from input.
 
 5. WEATHER-BASED CLOTHING & PACKING SUGGESTIONS
@@ -211,8 +206,7 @@ Return JSON ONLY in this schema:
             "review_summary": "Short user review summary if available.",
             "rating": 4.5,
             "google_maps_url": "https://...",
-            "directions_url": "https://...",
-            "location": {{ "lat": 0.0, "lng": 0.0 }}
+            "directions_url": "https://..."
           }}
         ],
         "afternoon": [ ... ],
