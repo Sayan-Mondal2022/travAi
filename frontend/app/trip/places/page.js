@@ -3,12 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { apiGet } from "@/lib/api";
-import {
-  MapPin,
-  Navigation,
-  Star,
-  Landmark,
-} from "lucide-react";
+import { MapPin, Navigation, Star, Landmark } from "lucide-react";
 import { PhotoCarousel } from "@/components/PhotoCarousel";
 
 export default function PlacesPage() {
@@ -32,20 +27,59 @@ export default function PlacesPage() {
   const [currentPage, setCurrentPage] = useState(1);
 
   /* -------------------------------------------------------
-     LOAD SELECTED PLACES (persist selection across pages)
+     LOAD TRIP DATA (WITH FIX)
   -------------------------------------------------------- */
   useEffect(() => {
-    const stored = localStorage.getItem("selected_places");
-    if (stored) {
-      setSelectedPlaces(JSON.parse(stored));
+    try {
+      const storedData =
+        localStorage.getItem("tripData") || localStorage.getItem("trip_data");
+
+      if (storedData) {
+        const parsed = JSON.parse(storedData);
+        setTripData(parsed);
+
+        if (!localStorage.getItem("tripData")) {
+          localStorage.setItem("tripData", JSON.stringify(parsed));
+        }
+      } else {
+        setError("Trip data missing. Please create a trip first.");
+      }
+    } catch {
+      setError("Failed to load trip data.");
     }
   }, []);
 
   /* -------------------------------------------------------
-     TOGGLE SELECTION & STORE IN LOCALSTORAGE
+     LOAD SELECTED PLACES — FIXED WITH TRIP ID CHECK
+  -------------------------------------------------------- */
+  useEffect(() => {
+    if (!tripData || !tripData.to_location || !tripData.start_date) return;
+
+    const tripId = `${tripData.from_location}_${tripData.to_location}_${tripData.start_date}`;
+    const lastTripId = localStorage.getItem("selected_places_trip_id");
+
+    if (tripId !== lastTripId) {
+      // NEW TRIP → clear old selections
+      localStorage.removeItem("selected_places");
+      localStorage.setItem("selected_places_trip_id", tripId);
+      setSelectedPlaces([]);
+      return;
+    }
+
+    const stored = localStorage.getItem("selected_places");
+    if (stored) {
+      setSelectedPlaces(JSON.parse(stored));
+    }
+  }, [tripData]);
+
+  /* -------------------------------------------------------
+     TOGGLE SELECTION & STORE IN LOCALSTORAGE (WITH TRIP ID)
   -------------------------------------------------------- */
   const toggleSelect = (place) => {
+    if (!tripData) return;
+
     const id = place.id || place.place_id;
+    const tripId = `${tripData.from_location}_${tripData.to_location}_${tripData.start_date}`;
 
     setSelectedPlaces((prev) => {
       let updated;
@@ -56,24 +90,12 @@ export default function PlacesPage() {
         updated = [...prev, place];
       }
 
+      localStorage.setItem("selected_places_trip_id", tripId);
       localStorage.setItem("selected_places", JSON.stringify(updated));
+
       return updated;
     });
   };
-
-  /* -------------------------------------------------------
-     LOAD TRIP DATA
-  -------------------------------------------------------- */
-  useEffect(() => {
-    try {
-      const str =
-        localStorage.getItem("tripData") || localStorage.getItem("trip_data");
-      if (str) setTripData(JSON.parse(str));
-      else setError("Trip data missing. Please create a trip first.");
-    } catch {
-      setError("Failed to load trip data.");
-    }
-  }, []);
 
   const destination = tripData?.to_location;
   const preferences = tripData?.travel_preferences?.join(",") || "";
@@ -83,10 +105,7 @@ export default function PlacesPage() {
      FETCH PLACES FROM BACKEND
   -------------------------------------------------------- */
   useEffect(() => {
-    if (!destination) {
-      setLoading(false);
-      return;
-    }
+    if (!destination) return;
 
     async function load() {
       setLoading(true);
@@ -115,19 +134,14 @@ export default function PlacesPage() {
   }, [destination, preferences, experienceType]);
 
   /* -------------------------------------------------------
-     HOVER EXPANSION BEHAVIOR
+     HOVER EXPANSION LOGIC
   -------------------------------------------------------- */
   const handleMouseEnter = (id) => {
-    hoverTimeout.current = setTimeout(() => {
-      setHovered(id);
-    }, 2000); // 2s hover delay
+    hoverTimeout.current = setTimeout(() => setHovered(id), 2000);
   };
 
   const handleMouseLeave = () => {
-    if (hoverTimeout.current) {
-      clearTimeout(hoverTimeout.current);
-      hoverTimeout.current = null;
-    }
+    if (hoverTimeout.current) clearTimeout(hoverTimeout.current);
     setHovered(null);
   };
 
@@ -138,7 +152,7 @@ export default function PlacesPage() {
   }, []);
 
   /* -------------------------------------------------------
-     FLATTEN CATEGORY DATA
+     CATEGORY FLATTENING
   -------------------------------------------------------- */
   const flatten = (obj) => {
     if (!obj) return [];
@@ -162,7 +176,7 @@ export default function PlacesPage() {
   const paginated = list.slice(pageStart, pageStart + ITEMS_PER_PAGE);
 
   /* -------------------------------------------------------
-     STAR RENDER
+     STAR COMPONENT
   -------------------------------------------------------- */
   const stars = (rating) => {
     if (!rating) return null;
@@ -189,9 +203,22 @@ export default function PlacesPage() {
   };
 
   /* -------------------------------------------------------
+     GENERATE CUSTOM ITINERARY BUTTON
+  -------------------------------------------------------- */
+  const handleGenerateItinerary = () => {
+    if (selectedPlaces.length === 0) return;
+
+    const tripId = `${tripData.from_location}_${tripData.to_location}_${tripData.start_date}`;
+
+    localStorage.setItem("selected_places_trip_id", tripId);
+    localStorage.setItem("selected_places", JSON.stringify(selectedPlaces));
+
+    router.push("/trip/itinerary");
+  };
+
+  /* -------------------------------------------------------
      RENDER
   -------------------------------------------------------- */
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center text-lg">
@@ -216,11 +243,8 @@ export default function PlacesPage() {
 
   return (
     <div className="min-h-screen p-4 pb-32 max-w-7xl mx-auto">
-      {/* ---------------------------------------------------
-          HEADER — MODES + AI BUTTON
-      ---------------------------------------------------- */}
+      {/* HEADER */}
       <div className="flex items-center justify-between mb-6">
-        {/* LEFT: Reference / Recommended */}
         <div className="flex gap-4">
           <button
             className={`px-4 py-2 rounded ${
@@ -251,7 +275,6 @@ export default function PlacesPage() {
           </button>
         </div>
 
-        {/* RIGHT: AI ITINERARY BUTTON */}
         <button
           onClick={() => router.push("/trip/generate?mode=ai")}
           className="px-4 py-2 bg-purple-600 text-white rounded-lg shadow hover:bg-purple-700"
@@ -260,9 +283,7 @@ export default function PlacesPage() {
         </button>
       </div>
 
-      {/* ---------------------------------------------------
-          CATEGORY TABS
-      ---------------------------------------------------- */}
+      {/* CATEGORY TABS */}
       <div className="flex gap-6 border-b mb-6 pb-2 text-lg font-medium">
         <button
           onClick={() => {
@@ -307,9 +328,7 @@ export default function PlacesPage() {
         </button>
       </div>
 
-      {/* ---------------------------------------------------
-          PLACES GRID
-      ---------------------------------------------------- */}
+      {/* GRID */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {paginated.length === 0 && (
           <p className="text-gray-600 col-span-full">
@@ -322,7 +341,6 @@ export default function PlacesPage() {
 
           const address = place.formattedAddress;
           const photos = place.photos;
-
           const editorial = place["editorialSummary.text"];
           const reviewSummary = place["reviewSummary.text"]?.text;
           const rating = place.rating;
@@ -330,6 +348,7 @@ export default function PlacesPage() {
           const placeLink = place["googleMapsLinks.placeUri"];
           const directionLink = place["googleMapsLinks.directionsUri"];
           const reviewsLink = place["googleMapsLinks.reviewsUri"];
+
           const landmarks = place["addressDescriptor.landmarks"];
 
           const isSelected = selectedPlaces.some(
@@ -343,7 +362,7 @@ export default function PlacesPage() {
               onMouseEnter={() => handleMouseEnter(id)}
               onMouseLeave={handleMouseLeave}
             >
-              {/* NORMAL CARD */}
+              {/* CARD */}
               <div
                 className={`rounded-xl border bg-white p-3 transition-all duration-300 ${
                   hovered === id ? "scale-[1.02] z-[40]" : "hover:shadow-lg"
@@ -381,7 +400,7 @@ export default function PlacesPage() {
                 </button>
               </div>
 
-              {/* EXPANDED PANEL */}
+              {/* HOVER PANEL */}
               {hovered === id && (
                 <div
                   className="
@@ -390,9 +409,7 @@ export default function PlacesPage() {
                     shadow-2xl rounded-xl p-8
                     animate-[fadeIn_0.25s_ease-out]
                   "
-                  onMouseLeave={handleMouseLeave}
                 >
-                  {/* Close button */}
                   <button
                     onClick={() => setHovered(null)}
                     className="absolute top-4 right-6 text-gray-700 hover:text-black text-3xl font-bold"
@@ -401,7 +418,6 @@ export default function PlacesPage() {
                   </button>
 
                   <div className="max-w-5xl mx-auto flex gap-10 mt-6">
-                    {/* LEFT SIDE */}
                     <div className="w-2/3 pr-4">
                       <h2 className="text-3xl font-bold mb-4">
                         {place.displayName}
@@ -417,7 +433,6 @@ export default function PlacesPage() {
                         </p>
                       )}
 
-                      {/* Rating */}
                       {rating && (
                         <div className="flex items-center gap-3 mb-4">
                           {stars(rating)}
@@ -463,7 +478,6 @@ export default function PlacesPage() {
                       )}
                     </div>
 
-                    {/* RIGHT SIDE LANDMARKS */}
                     <div className="w-1/3 bg-gray-50 p-6 rounded-xl border">
                       <h4 className="text-xl font-semibold mb-3 flex items-center gap-2">
                         <Landmark className="w-5 h-5" /> Nearby Landmarks
@@ -495,9 +509,7 @@ export default function PlacesPage() {
         })}
       </div>
 
-      {/* ---------------------------------------------------
-          PAGINATION
-      ---------------------------------------------------- */}
+      {/* PAGINATION */}
       {totalPages > 1 && (
         <div className="flex justify-center gap-4 mt-6">
           <button
@@ -522,10 +534,8 @@ export default function PlacesPage() {
         </div>
       )}
 
-      {/* ---------------------------------------------------
-          STICKY GENERATE ITINERARY BUTTON (CUSTOM)
-      ---------------------------------------------------- */}
-      <div className="sticky bottom-4 mt-8 bg-white border shadow-lg rounded-xl px-6 py-4 flex items-center justify-between">
+      {/* STICKY GENERATE ITINERARY BUTTON */}
+      <div className="sticky bottom-4 mt-8 bg-white border shadow-lg rounded-xl px-6 py-4 flex items-center justify-between z-50">
         <div>
           <p className="font-semibold text-lg">
             Selected Places: {selectedPlaces.length}
@@ -536,7 +546,7 @@ export default function PlacesPage() {
         </div>
 
         <button
-          onClick={() => router.push("/trip/itinerary")}
+          onClick={handleGenerateItinerary}
           disabled={selectedPlaces.length === 0}
           className="px-6 py-3 bg-blue-600 text-white rounded-lg shadow disabled:opacity-50"
         >

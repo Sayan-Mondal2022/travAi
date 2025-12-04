@@ -623,9 +623,9 @@ def get_preference_based_places(request, destination: str, travel_preferences: s
 
             return results
 
-        tourist_attractions = remove_duplicates(tourist_attractions, limit=20, container_set=PREF_TOURIST_SET)
-        restaurants = remove_duplicates(restaurants, limit=20, container_set=PREF_RESTAURANT_SET)
-        lodging = remove_duplicates(lodging, limit=20, container_set=PREF_LODGING_SET)
+        tourist_attractions = remove_duplicates(tourist_attractions, limit=30, container_set=PREF_TOURIST_SET)
+        restaurants = remove_duplicates(restaurants, limit=30, container_set=PREF_RESTAURANT_SET)
+        lodging = remove_duplicates(lodging, limit=30, container_set=PREF_LODGING_SET)
 
         # Build REFERENCE places (grouped by preference)
         reference_places = {
