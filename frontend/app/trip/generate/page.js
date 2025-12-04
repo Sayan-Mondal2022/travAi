@@ -161,10 +161,10 @@ export default function ItineraryPage() {
       </div>
 
       {/* TOP TABS: ITINERARY / SUGGESTIONS */}
-      <div className="flex gap-4 mb-6">
+      <div className="flex gap-4 mb-6 ">
         <button
           onClick={() => setActiveTab("itinerary")}
-          className={`px-6 py-2 rounded-lg font-semibold border ${
+          className={`px-6 py-2 rounded-2xl hover:cursor-pointer font-semibold ${
             activeTab === "itinerary"
               ? "bg-blue-600 text-white border-blue-700"
               : "bg-white text-gray-800 border-gray-300"
@@ -175,7 +175,7 @@ export default function ItineraryPage() {
 
         <button
           onClick={() => setActiveTab("suggestions")}
-          className={`px-6 py-2 rounded-lg font-semibold border ${
+          className={`px-6 py-2 rounded-2xl hover:cursor-pointer font-semibold ${
             activeTab === "suggestions"
               ? "bg-blue-600 text-white border-blue-700"
               : "bg-white text-gray-800 border-gray-300"
@@ -198,7 +198,7 @@ export default function ItineraryPage() {
           />
 
           {/* ACTIVE DAY CONTENT */}
-          <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="rounded-2xl shadow-lg p-6">
             <h2 className="text-3xl font-bold mb-4 flex items-center">
               <Calendar className="w-7 h-7 text-blue-600 mr-2" />
               Day {activeDay + 1}: {safeText(itineraryDays[activeDay]?.title)}

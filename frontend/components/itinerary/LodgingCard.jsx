@@ -4,7 +4,7 @@ import LandmarkList from "./LandmarkList";
 
 export default function LodgingCard({ h }) {
   return (
-    <div className="bg-white/60 backdrop-blur-md shadow-md rounded-2xl p-5 transition-all hover:shadow-xl">
+    <div className="bg-white/60 backdrop-blur-md shadow-md rounded-2xl p-5 transition-all hover:shadow-xl hover:cursor-pointer">
       <p className="font-semibold text-deep_twilight text-lg">
         {safeText(h.name)}
       </p>
