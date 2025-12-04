@@ -4,34 +4,32 @@ import LandmarkList from "./LandmarkList";
 
 export default function AttractionCard({ place }) {
   return (
-    <div className="p-4 bg-gray-50 rounded-lg border border-gray-200 shadow-sm mb-4">
-      <p className="font-semibold text-gray-900">
+    <div className="bg-white/60 backdrop-blur-md shadow-md rounded-2xl p-5 m-3 transition-all hover:shadow-xl">
+      <p className="font-semibold text-deep_twilight text-lg">
         {safeText(place.time_block)} — {safeText(place.place_name)}
       </p>
 
       {place.summary && (
-        <p className="text-gray-700 mt-1">
-          {safeText(place.summary)}
-        </p>
+        <p className="text-deep_twilight/70 mt-1">{safeText(place.summary)}</p>
       )}
 
       <TypeBadgeList types={place.types} />
       <LandmarkList landmarks={place.landmarks} />
 
       {place.rating && (
-        <p className="text-sm text-gray-500 mt-1">
+        <p className="text-sm text-deep_twilight/60 mt-2">
           ⭐ {place.rating}
         </p>
       )}
 
-      <div className="flex gap-3 mt-2">
+      <div className="flex gap-4 mt-3">
         {place.google_maps_url && (
           <a
             href={place.google_maps_url}
             target="_blank"
-            className="text-blue-600 underline text-sm"
+            className="text-bright_teal_blue font-medium text-sm hover:underline"
           >
-            View on Maps →
+            View →
           </a>
         )}
 
@@ -39,7 +37,7 @@ export default function AttractionCard({ place }) {
           <a
             href={place.directions_url}
             target="_blank"
-            className="text-green-600 underline text-sm"
+            className="text-turquoise_surf font-medium text-sm hover:underline"
           >
             Directions →
           </a>

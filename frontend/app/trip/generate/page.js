@@ -192,16 +192,17 @@ export default function ItineraryPage() {
             {/* FOOD */}
             <FoodSection food={itineraryDays[activeDay]?.food_recommendations} />
 
-            {/* Lodging only on Day 1 */}
-            {activeDay === 0 &&
-              itineraryDays[0].lodging?.length > 0 && (
-                <div className="mt-10">
-                  <h3 className="text-2xl font-bold mb-4">Lodging Options</h3>
-                  {itineraryDays[0].lodging.map((h, i) => (
-                    <LodgingCard key={i} h={h} />
-                  ))}
-                </div>
-              )}
+            {itineraryDays[activeDay]?.lodging_options?.length > 0 && (
+            <div className="mt-10">
+              <h3 className={`text-2xl mb-4`}>Lodging Options</h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {itineraryDays[activeDay].lodging_options.map((h, i) => (
+                  <LodgingCard key={i} h={h} />
+                ))}
+              </div>
+            </div>
+          )}
 
             {/* Budget */}
             {itineraryDays[activeDay]?.budget && (

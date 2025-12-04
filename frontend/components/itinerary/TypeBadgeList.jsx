@@ -5,6 +5,8 @@ export default function TypeBadgeList({ types = [] }) {
   if (!formatted) return null;
 
   return (
-    <p className="text-xs text-gray-500 mt-1">{formatted}</p>
+    <p className="text-xs text-bright_teal_blue mt-2 font-medium">
+      {formatted}
+    </p>
   );
 }

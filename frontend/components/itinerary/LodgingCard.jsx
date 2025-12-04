@@ -4,10 +4,12 @@ import LandmarkList from "./LandmarkList";
 
 export default function LodgingCard({ h }) {
   return (
-    <div className="p-4 bg-white rounded-lg shadow border mb-3">
-      <p className="font-semibold text-gray-900">{safeText(h.name)}</p>
+    <div className="bg-white/60 backdrop-blur-md shadow-md rounded-2xl p-5 transition-all hover:shadow-xl">
+      <p className="font-semibold text-deep_twilight text-lg">
+        {safeText(h.name)}
+      </p>
 
-      <p className="text-sm text-gray-600">
+      <p className="text-sm text-deep_twilight/70">
         {safeText(h.formatted_address)}
       </p>
 
@@ -15,21 +17,23 @@ export default function LodgingCard({ h }) {
       <LandmarkList landmarks={h.landmarks} />
 
       {h.rating && (
-        <p className="text-xs text-gray-600 mt-1">⭐ {h.rating}</p>
+        <p className="text-xs text-deep_twilight/70 mt-1">
+          ⭐ {h.rating}
+        </p>
       )}
 
       {h.editorial_summary && (
-        <p className="text-xs text-gray-700 mt-1 italic">
+        <p className="text-xs text-deep_twilight/80 mt-2 italic">
           {safeText(h.editorial_summary)}
         </p>
       )}
 
-      <div className="flex gap-3 mt-2">
+      <div className="flex gap-4 mt-3">
         {h.google_maps_url && (
           <a
             href={h.google_maps_url}
             target="_blank"
-            className="text-blue-600 underline text-sm"
+            className="text-bright_teal_blue font-medium text-sm hover:underline"
           >
             View →
           </a>
@@ -39,7 +43,7 @@ export default function LodgingCard({ h }) {
           <a
             href={h.directions_url}
             target="_blank"
-            className="text-green-600 underline text-sm"
+            className="text-turquoise_surf font-medium text-sm hover:underline"
           >
             Directions →
           </a>
