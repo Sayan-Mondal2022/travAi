@@ -11,12 +11,7 @@ import LodgingCard from "@/components/itinerary/LodgingCard";
 import SuggestionPanel from "@/components/itinerary/SuggestionPanel";
 import { safeText } from "@/components/itinerary/helpers";
 
-import {
-  Loader,
-  AlertTriangle,
-  Calendar,
-  DollarSign,
-} from "lucide-react";
+import { Loader, AlertTriangle, Calendar, DollarSign } from "lucide-react";
 
 export default function ItineraryPage() {
   const router = useRouter();
@@ -35,9 +30,13 @@ export default function ItineraryPage() {
   useEffect(() => {
     const fetchItinerary = async () => {
       try {
-        const savedTrip = JSON.parse(localStorage.getItem("currentTrip") || "{}");
+        const savedTrip = JSON.parse(
+          localStorage.getItem("currentTrip") || "{}"
+        );
         const mode = localStorage.getItem("itineraryMode") || "ai";
-        const selectedPlaces = JSON.parse(localStorage.getItem("selectedPlaces") || "[]");
+        const selectedPlaces = JSON.parse(
+          localStorage.getItem("selectedPlaces") || "[]"
+        );
 
         if (!savedTrip.to_location) {
           throw new Error("No trip data found. Please create a trip first.");
@@ -112,18 +111,53 @@ export default function ItineraryPage() {
 
   return (
     <div className="min-h-screen bg-gray-100 p-6">
-
       {/* HEADER */}
-      <div className="bg-white rounded-xl shadow-lg p-6 mb-8 text-center">
-        <h1 className="text-4xl font-extrabold text-gray-900">
-          Trip to {safeText(tripData?.to_location)}
-        </h1>
+      <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
+        <h2 className="text-2xl font-bold text-gray-900 mb-4 text-center">
+          Trip Summary
+        </h2>
 
-        {itinerary?.overall_summary && (
-          <p className="mt-3 text-lg text-gray-700">
-            {safeText(itinerary.overall_summary)}
+        {/* TRIP SUMMARY */}
+        <div>
+          {/* ONE-LINE BASIC TRIP INFO */}
+          <p className="text-gray-900 font-semibold text-lg text-justify">
+            <span className="font-bold">From:</span>{" "}
+            <span className="italic">
+              {safeText(tripData?.from_location || "Source Not Provided")}
+            </span>
+            <span className="text-blue-600 font-bold mx-2">→</span>
+            <span className="font-bold">To:</span>{" "}
+            <span className="italic">
+              {safeText(tripData?.to_location || "Destination Not Provided")}
+            </span>
+            <span className="mx-3">
+              <span className="font-bold">Duration:</span>{" "}
+              <span className="italic">
+                {safeText(tripData?.duration_days)} Days
+              </span>
+            </span>
           </p>
-        )}
+
+          {/* OVERALL SUMMARY */}
+          {itinerary?.overall_summary && (
+            <p className="mt-4 text-gray-700 text-justify leading-relaxed">
+              <span className="font-bold text-gray-900">Trip Overview:</span>{" "}
+              <span className="italic">
+                {safeText(itinerary.overall_summary)}
+              </span>
+            </p>
+          )}
+
+          {/* USER PREFERENCES */}
+          <p className="mt-4 text-gray-700 text-justify leading-relaxed">
+            <span className="font-bold text-gray-900">Your Interests:</span>{" "}
+            <span className="italic">
+              {tripData?.travel_preferences?.length > 0
+                ? tripData.travel_preferences.join(", ")
+                : "No specific preferences provided"}
+            </span>
+          </p>
+        </div>
       </div>
 
       {/* TOP TABS: ITINERARY / SUGGESTIONS */}
@@ -190,19 +224,21 @@ export default function ItineraryPage() {
             ))}
 
             {/* FOOD */}
-            <FoodSection food={itineraryDays[activeDay]?.food_recommendations} />
+            <FoodSection
+              food={itineraryDays[activeDay]?.food_recommendations}
+            />
 
             {itineraryDays[activeDay]?.lodging_options?.length > 0 && (
-            <div className="mt-10">
-              <h3 className={`text-2xl mb-4`}>Lodging Options</h3>
+              <div className="mt-10">
+                <h3 className={`text-2xl mb-4`}>Lodging Options</h3>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                {itineraryDays[activeDay].lodging_options.map((h, i) => (
-                  <LodgingCard key={i} h={h} />
-                ))}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  {itineraryDays[activeDay].lodging_options.map((h, i) => (
+                    <LodgingCard key={i} h={h} />
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
             {/* Budget */}
             {itineraryDays[activeDay]?.budget && (

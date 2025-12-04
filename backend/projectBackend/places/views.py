@@ -343,7 +343,8 @@ async def generate_itinerary(request, payload: dict = Body(...)):
             return {"success": False, "error": "Destination is required."}
 
         if days <= 0:
-            days = 3
+            days = 1
+        days = min(6, days)
 
         # ================== LOAD / FETCH PLACES CONTEXT ==================
         preferences_list = [p.strip() for p in preferences] if preferences else []
