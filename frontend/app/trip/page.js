@@ -10,7 +10,7 @@ import Globe3D from "@/components/Globe3D";
 const geocodeCity = async (city) => {
   if (!city) return null;
 
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_KEY;
   if (!apiKey) {
     console.error("❌ API Key missing. Please check .env.local");
     return null;

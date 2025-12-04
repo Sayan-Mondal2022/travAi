@@ -104,7 +104,7 @@ Before running this project, please make sure the required tools and technologie
     ```bash
     NEXT_PUBLIC_API_URL=http://localhost:8000
     NEXT_PUBLIC_APP_NAME=TravAi
-    NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=GOOGLE_API_KEY
+    NEXT_PUBLIC_GOOGLE_KEY=GOOGLE_API_KEY
     ```
 
 - Backend (backend/.env)

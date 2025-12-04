@@ -7,51 +7,9 @@ import {
   MapPin,
   Navigation,
   Star,
-  Globe,
-  Phone,
-  Landmark
+  Landmark,
 } from "lucide-react";
-
-/* -------------------------------------------------------
-   PHOTO CAROUSEL COMPONENT
--------------------------------------------------------- */
-function PhotoCarousel({ photos }) {
-  const [index, setIndex] = useState(0);
-
-  useEffect(() => {
-    if (!photos || photos.length === 0) return;
-    const interval = setInterval(() => {
-      setIndex((prev) => (prev + 1) % photos.length);
-    }, 20000); // 20 seconds per photo
-    return () => clearInterval(interval);
-  }, [photos]);
-
-  if (!photos || photos.length === 0) {
-    return (
-      <div className="w-full h-40 bg-gray-200 rounded-lg flex items-center justify-center text-gray-500">
-        No Photos
-      </div>
-    );
-  }
-
-  // image URL conversion for Google photo names
-  const convert = (photoName) =>
-    `https://places.googleapis.com/v1/${photoName}/media?max_width=600&key=${process.env.NEXT_PUBLIC_GOOGLE_KEY}`;
-
-  return (
-    <div className="w-full h-40 overflow-hidden rounded-lg">
-      <img
-        src={convert(photos[index])}
-        alt="photo"
-        className="w-full h-40 object-cover rounded-lg transition-all duration-700"
-      />
-    </div>
-  );
-}
-
-/* -------------------------------------------------------
-   MAIN PAGE
--------------------------------------------------------- */
+import { PhotoCarousel } from "@/components/PhotoCarousel";
 
 export default function PlacesPage() {
   const router = useRouter();
@@ -60,32 +18,60 @@ export default function PlacesPage() {
   const [activeMode, setActiveMode] = useState("reference");
   const [placesData, setPlacesData] = useState(null);
 
+  const [selectedPlaces, setSelectedPlaces] = useState([]);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const [selectedPlaces, setSelectedPlaces] = useState([]);
-  const [hovered, setHovered] = useState(null);
-
   const [tripData, setTripData] = useState(null);
+
+  const [hovered, setHovered] = useState(null);
+  const hoverTimeout = useRef(null);
 
   const ITEMS_PER_PAGE = 12;
   const [currentPage, setCurrentPage] = useState(1);
 
   /* -------------------------------------------------------
+     LOAD SELECTED PLACES (persist selection across pages)
+  -------------------------------------------------------- */
+  useEffect(() => {
+    const stored = localStorage.getItem("selected_places");
+    if (stored) {
+      setSelectedPlaces(JSON.parse(stored));
+    }
+  }, []);
+
+  /* -------------------------------------------------------
+     TOGGLE SELECTION & STORE IN LOCALSTORAGE
+  -------------------------------------------------------- */
+  const toggleSelect = (place) => {
+    const id = place.id || place.place_id;
+
+    setSelectedPlaces((prev) => {
+      let updated;
+
+      if (prev.some((p) => (p.id || p.place_id) === id)) {
+        updated = prev.filter((p) => (p.id || p.place_id) !== id);
+      } else {
+        updated = [...prev, place];
+      }
+
+      localStorage.setItem("selected_places", JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  /* -------------------------------------------------------
      LOAD TRIP DATA
   -------------------------------------------------------- */
   useEffect(() => {
-    const str =
-      localStorage.getItem("tripData") ||
-      localStorage.getItem("trip_data");
-    if (str) {
-      try {
-        setTripData(JSON.parse(str));
-      } catch {
-        setError("Failed to load trip data");
-      }
-    } else {
-      setError("No trip data found. Please create a trip first.");
+    try {
+      const str =
+        localStorage.getItem("tripData") || localStorage.getItem("trip_data");
+      if (str) setTripData(JSON.parse(str));
+      else setError("Trip data missing. Please create a trip first.");
+    } catch {
+      setError("Failed to load trip data.");
     }
   }, []);
 
@@ -94,10 +80,13 @@ export default function PlacesPage() {
   const experienceType = tripData?.experience_type || "";
 
   /* -------------------------------------------------------
-     FETCH PLACES
+     FETCH PLACES FROM BACKEND
   -------------------------------------------------------- */
   useEffect(() => {
-    if (!tripData || !destination) return;
+    if (!destination) {
+      setLoading(false);
+      return;
+    }
 
     async function load() {
       setLoading(true);
@@ -105,8 +94,7 @@ export default function PlacesPage() {
       try {
         const params = new URLSearchParams();
         if (preferences) params.append("travel_preferences", preferences);
-        if (experienceType)
-          params.append("experience_type", experienceType);
+        if (experienceType) params.append("experience_type", experienceType);
 
         const qs = params.toString();
         const endpoint = `/api/tour/preference-places/${destination}${
@@ -115,101 +103,67 @@ export default function PlacesPage() {
 
         const data = await apiGet(endpoint);
         setPlacesData(data);
-      } catch (e) {
-        setError("Failed to load places");
+      } catch (err) {
+        console.error(err);
+        setError("Failed to fetch places.");
       } finally {
         setLoading(false);
       }
     }
 
     load();
-  }, [tripData, destination]);
-
-  if (loading)
-    return (
-      <div className="flex justify-center items-center min-h-screen text-lg">
-        Loading Places...
-      </div>
-    );
-
-  if (error)
-    return (
-      <div className="text-center p-10">
-        <div className="text-red-500 text-xl mb-4">{error}</div>
-        <button
-          className="px-4 py-2 bg-blue-600 text-white rounded"
-          onClick={() => window.location.reload()}
-        >
-          Retry
-        </button>
-      </div>
-    );
-
-  if (!placesData)
-    return (
-      <div className="text-center p-10">
-        No places found.
-        <button
-          className="ml-3 px-4 py-2 bg-blue-600 text-white rounded"
-          onClick={() => router.push("/trip/create")}
-        >
-          Back to Trip
-        </button>
-      </div>
-    );
+  }, [destination, preferences, experienceType]);
 
   /* -------------------------------------------------------
-     FLATTENING UTILITY (keeps categories separated)
+     HOVER EXPANSION BEHAVIOR
   -------------------------------------------------------- */
-  const flatten = (categoryData) => {
-    let result = [];
-    if (!categoryData) return [];
-    Object.keys(categoryData).forEach((pref) => {
-      const arr = categoryData[pref] || [];
-      arr.forEach((place) => result.push({ ...place }));
+  const handleMouseEnter = (id) => {
+    hoverTimeout.current = setTimeout(() => {
+      setHovered(id);
+    }, 2000); // 2s hover delay
+  };
+
+  const handleMouseLeave = () => {
+    if (hoverTimeout.current) {
+      clearTimeout(hoverTimeout.current);
+      hoverTimeout.current = null;
+    }
+    setHovered(null);
+  };
+
+  useEffect(() => {
+    const esc = (e) => e.key === "Escape" && setHovered(null);
+    window.addEventListener("keydown", esc);
+    return () => window.removeEventListener("keydown", esc);
+  }, []);
+
+  /* -------------------------------------------------------
+     FLATTEN CATEGORY DATA
+  -------------------------------------------------------- */
+  const flatten = (obj) => {
+    if (!obj) return [];
+    const out = [];
+    Object.keys(obj).forEach((p) => {
+      const arr = obj[p] || [];
+      arr.forEach((place) => out.push(place));
     });
-    return result;
+    return out;
   };
 
   const categoryData =
     activeMode === "reference"
-      ? placesData.reference_places
-      : placesData.recommended_places;
+      ? placesData?.reference_places
+      : placesData?.recommended_places;
 
   const list = flatten(categoryData?.[activeTab] || []);
 
-  // pagination
+  const totalPages = Math.ceil(list.length / ITEMS_PER_PAGE) || 1;
   const pageStart = (currentPage - 1) * ITEMS_PER_PAGE;
   const paginated = list.slice(pageStart, pageStart + ITEMS_PER_PAGE);
-  const totalPages = Math.ceil(list.length / ITEMS_PER_PAGE);
 
   /* -------------------------------------------------------
-     HELPERS
+     STAR RENDER
   -------------------------------------------------------- */
-  const get = (obj, path) => {
-    if (!obj) return null;
-    const keys = path.split(".");
-    let v = obj;
-    for (let k of keys) {
-      if (v && typeof v === "object") v = v[k];
-      else return null;
-    }
-    return v;
-  };
-
-  const toggleSelect = (place) => {
-    const id = place.id || place.place_id;
-    if (!id) return;
-
-    if (selectedPlaces.some((p) => (p.id || p.place_id) === id)) {
-      setSelectedPlaces((prev) =>
-        prev.filter((p) => (p.id || p.place_id) !== id)
-      );
-    } else {
-      setSelectedPlaces((prev) => [...prev, place]);
-    }
-  };
-
   const stars = (rating) => {
     if (!rating) return null;
     const full = Math.floor(rating);
@@ -218,11 +172,9 @@ export default function PlacesPage() {
     return (
       <div className="flex items-center gap-1">
         {[...Array(full)].map((_, i) => (
-          <Star
-            key={i}
-            className="w-4 h-4 fill-yellow-400 text-yellow-400"
-          />
+          <Star key={i} className="w-4 h-4 fill-yellow-400 text-yellow-400" />
         ))}
+
         {half && (
           <div className="relative w-4 h-4">
             <Star className="absolute w-4 h-4 text-gray-300" />
@@ -240,177 +192,302 @@ export default function PlacesPage() {
      RENDER
   -------------------------------------------------------- */
 
-  return (
-    <div className="min-h-screen p-4 md:p-6 max-w-7xl mx-auto">
-      <h1 className="text-3xl font-bold mb-2">
-        Places in {placesData.destination || destination}
-      </h1>
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-lg">
+        Loading places...
+      </div>
+    );
+  }
 
-      {/* MODE TOGGLE */}
-      <div className="flex gap-4 my-6">
-        {["reference", "recommended"].map((mode) => (
+  if (error) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4">
+        <p className="text-red-500 text-lg">{error}</p>
+        <button
+          onClick={() => router.push("/trip")}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg"
+        >
+          Back to Trip
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen p-4 pb-32 max-w-7xl mx-auto">
+      {/* ---------------------------------------------------
+          HEADER — MODES + AI BUTTON
+      ---------------------------------------------------- */}
+      <div className="flex items-center justify-between mb-6">
+        {/* LEFT: Reference / Recommended */}
+        <div className="flex gap-4">
           <button
-            key={mode}
-            className={`px-4 py-2 rounded-lg font-medium ${
-              activeMode === mode
+            className={`px-4 py-2 rounded ${
+              activeMode === "reference"
                 ? "bg-blue-600 text-white"
                 : "bg-gray-200"
             }`}
             onClick={() => {
-              setActiveMode(mode);
+              setActiveMode("reference");
               setCurrentPage(1);
             }}
           >
-            {mode === "reference" ? "Reference Places" : "Recommended Places"}
+            Reference
           </button>
-        ))}
-      </div>
 
-      {/* CATEGORY TABS */}
-      <div className="flex gap-6 border-b pb-2 mb-6 text-lg font-medium">
-        {[
-          ["tourist_attractions", "Tourist Places"],
-          ["lodging", "Lodging"],
-          ["restaurants", "Restaurants"]
-        ].map(([key, label]) => (
           <button
-            key={key}
-            className={`pb-2 ${
-              activeTab === key
-                ? "text-blue-600 border-b-2 border-blue-600"
-                : "text-gray-600"
+            className={`px-4 py-2 rounded ${
+              activeMode === "recommended"
+                ? "bg-blue-600 text-white"
+                : "bg-gray-200"
             }`}
             onClick={() => {
-              setActiveTab(key);
+              setActiveMode("recommended");
               setCurrentPage(1);
             }}
           >
-            {label}
+            Recommended
           </button>
-        ))}
+        </div>
+
+        {/* RIGHT: AI ITINERARY BUTTON */}
+        <button
+          onClick={() => router.push("/trip/itinerary?mode=ai")}
+          className="px-4 py-2 bg-purple-600 text-white rounded-lg shadow hover:bg-purple-700"
+        >
+          Generate AI Itinerary
+        </button>
       </div>
 
-      {/* GRID — 3 CARDS PER ROW */}
+      {/* ---------------------------------------------------
+          CATEGORY TABS
+      ---------------------------------------------------- */}
+      <div className="flex gap-6 border-b mb-6 pb-2 text-lg font-medium">
+        <button
+          onClick={() => {
+            setActiveTab("tourist_attractions");
+            setCurrentPage(1);
+          }}
+          className={
+            activeTab === "tourist_attractions"
+              ? "text-blue-600 border-b-2 border-blue-600"
+              : "text-gray-500"
+          }
+        >
+          Tourist Places
+        </button>
+
+        <button
+          onClick={() => {
+            setActiveTab("lodging");
+            setCurrentPage(1);
+          }}
+          className={
+            activeTab === "lodging"
+              ? "text-blue-600 border-b-2 border-blue-600"
+              : "text-gray-500"
+          }
+        >
+          Lodging
+        </button>
+
+        <button
+          onClick={() => {
+            setActiveTab("restaurants");
+            setCurrentPage(1);
+          }}
+          className={
+            activeTab === "restaurants"
+              ? "text-blue-600 border-b-2 border-blue-600"
+              : "text-gray-500"
+          }
+        >
+          Restaurants
+        </button>
+      </div>
+
+      {/* ---------------------------------------------------
+          PLACES GRID
+      ---------------------------------------------------- */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {paginated.map((place, idx) => {
+        {paginated.length === 0 && (
+          <p className="text-gray-600 col-span-full">
+            No places found for this category.
+          </p>
+        )}
+
+        {paginated.map((place) => {
           const id = place.id || place.place_id;
+
+          const address = place.formattedAddress;
           const photos = place.photos;
-          const address = get(place, "formattedAddress");
-          const editorial = get(place, "editorialSummary.text");
-          const reviewSumm = get(place, "reviewSummary.text");
-          const rating = get(place, "rating");
-          const directionLink = get(
-            place,
-            "googleMapsLinks.directionsUri"
+
+          const editorial = place["editorialSummary.text"];
+          const reviewSummary = place["reviewSummary.text"]?.text;
+          const rating = place.rating;
+
+          const placeLink = place["googleMapsLinks.placeUri"];
+          const directionLink = place["googleMapsLinks.directionsUri"];
+          const reviewsLink = place["googleMapsLinks.reviewsUri"];
+          const landmarks = place["addressDescriptor.landmarks"];
+
+          const isSelected = selectedPlaces.some(
+            (p) => (p.id || p.place_id) === id
           );
-          const landmarks = get(place, "addressDescriptor.landmarks");
 
           return (
             <div
-              key={id || idx}
-              className={`rounded-xl border shadow-sm bg-white p-3 transition-all relative ${
-                hovered === id ? "shadow-xl" : "hover:shadow-lg"
-              }`}
-              onMouseEnter={() => setHovered(id)}
-              onMouseLeave={() => setHovered(null)}
+              key={id}
+              className="relative"
+              onMouseEnter={() => handleMouseEnter(id)}
+              onMouseLeave={handleMouseLeave}
             >
-              <PhotoCarousel photos={photos} />
-
-              <h3 className="text-xl font-semibold mt-3 mb-2">
-                {place.displayName || place.name}
-              </h3>
-
-              {/* Address */}
-              {address && (
-                <div className="flex gap-2 text-sm text-gray-600 mb-2">
-                  <MapPin className="w-4 h-4 mt-0.5" />
-                  {address}
-                </div>
-              )}
-
-              {/* Rating */}
-              {rating && (
-                <div className="flex items-center gap-2 mb-2">
-                  {stars(rating)}
-                  <span className="text-sm text-gray-500">
-                    {rating.toFixed(1)}
-                  </span>
-                </div>
-              )}
-
-              {/* Directions */}
-              {directionLink && (
-                <a
-                  href={directionLink}
-                  target="_blank"
-                  className="inline-flex items-center gap-2 text-blue-600 hover:underline text-sm mb-3"
-                >
-                  <Navigation className="w-4 h-4" />
-                  Get Directions
-                </a>
-              )}
-
-              {/* SELECT BUTTON */}
-              <button
-                onClick={() => toggleSelect(place)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium ${
-                  selectedPlaces.some(
-                    (p) => (p.id || p.place_id) === id
-                  )
-                    ? "bg-red-100 text-red-700"
-                    : "bg-green-100 text-green-700"
+              {/* NORMAL CARD */}
+              <div
+                className={`rounded-xl border bg-white p-3 transition-all duration-300 ${
+                  hovered === id ? "scale-[1.02] z-[40]" : "hover:shadow-lg"
                 }`}
               >
-                {selectedPlaces.some(
-                  (p) => (p.id || p.place_id) === id
-                )
-                  ? "Remove"
-                  : "Add to Trip"}
-              </button>
+                <PhotoCarousel photos={photos} />
 
-              {/* HOVER DETAILS */}
+                <h3 className="text-xl font-semibold mt-3 mb-2">
+                  {place.displayName}
+                </h3>
+
+                <div className="flex gap-2 text-sm text-gray-600 mb-2">
+                  <MapPin className="w-4 h-4" />
+                  {address}
+                </div>
+
+                {rating && (
+                  <div className="flex items-center gap-2 mb-2">
+                    {stars(rating)}
+                    <span className="text-sm text-gray-500">
+                      {rating.toFixed(1)}
+                    </span>
+                  </div>
+                )}
+
+                <button
+                  onClick={() => toggleSelect(place)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium ${
+                    isSelected
+                      ? "bg-red-100 text-red-700"
+                      : "bg-green-100 text-green-700"
+                  }`}
+                >
+                  {isSelected ? "Remove" : "Add to Trip"}
+                </button>
+              </div>
+
+              {/* EXPANDED PANEL */}
               {hovered === id && (
-                <div className="absolute z-20 top-0 left-0 w-full h-full bg-white bg-opacity-95 p-4 rounded-xl overflow-y-auto shadow-xl border">
-                  <h3 className="text-lg font-semibold mb-2">
-                    More Info
-                  </h3>
+                <div
+                  className="
+                    fixed inset-0 z-[9999] overflow-y-auto
+                    bg-white/80 backdrop-blur-lg
+                    shadow-2xl rounded-xl p-8
+                    animate-[fadeIn_0.25s_ease-out]
+                  "
+                  onMouseLeave={handleMouseLeave}
+                >
+                  {/* Close button */}
+                  <button
+                    onClick={() => setHovered(null)}
+                    className="absolute top-4 right-6 text-gray-700 hover:text-black text-3xl font-bold"
+                  >
+                    ✕
+                  </button>
 
-                  {editorial && (
-                    <p className="text-gray-700 mb-3">{editorial}</p>
-                  )}
+                  <div className="max-w-5xl mx-auto flex gap-10 mt-6">
+                    {/* LEFT SIDE */}
+                    <div className="w-2/3 pr-4">
+                      <h2 className="text-3xl font-bold mb-4">
+                        {place.displayName}
+                      </h2>
 
-                  {reviewSumm && (
-                    <p className="text-gray-700 italic mb-4">
-                      {reviewSumm}
-                    </p>
-                  )}
+                      {editorial && (
+                        <p className="text-gray-700 mb-4">{editorial}</p>
+                      )}
 
-                  {/* Nearby landmarks */}
-                  <h4 className="font-semibold mb-2 flex items-center gap-2">
-                    <Landmark className="w-4 h-4" />
-                    Nearby Landmarks
-                  </h4>
+                      {reviewSummary && (
+                        <p className="italic text-gray-600 mb-6">
+                          “{reviewSummary}”
+                        </p>
+                      )}
 
-                  {landmarks && landmarks.length > 0 ? (
-                    <ul className="text-sm space-y-2">
-                      {landmarks.map((lm, i) => (
-                        <li key={i} className="flex gap-2">
-                          <div className="w-2 h-2 bg-gray-400 rounded-full mt-1"></div>
-                          <span>
-                            {lm.text || lm.title} —{" "}
-                            {lm.distanceMeters
-                              ? (lm.distanceMeters / 1000).toFixed(2)
-                              : "?"}{" "}
-                            km
+                      {/* Rating */}
+                      {rating && (
+                        <div className="flex items-center gap-3 mb-4">
+                          {stars(rating)}
+                          <span className="text-gray-600 text-sm">
+                            {rating.toFixed(1)} / 5
                           </span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <div className="text-gray-500 text-sm">
-                      No landmark info
+                          {place.userRatingCount && (
+                            <span className="text-gray-500 text-sm">
+                              ({place.userRatingCount} reviews)
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      {reviewsLink && (
+                        <a
+                          href={reviewsLink}
+                          target="_blank"
+                          className="text-purple-600 underline block mb-3"
+                        >
+                          View Reviews →
+                        </a>
+                      )}
+
+                      {placeLink && (
+                        <a
+                          href={placeLink}
+                          target="_blank"
+                          className="text-blue-600 underline block mb-2"
+                        >
+                          Open in Google Maps →
+                        </a>
+                      )}
+
+                      {directionLink && (
+                        <a
+                          href={directionLink}
+                          target="_blank"
+                          className="text-green-600 underline block mb-4"
+                        >
+                          Get Directions →
+                        </a>
+                      )}
                     </div>
-                  )}
+
+                    {/* RIGHT SIDE LANDMARKS */}
+                    <div className="w-1/3 bg-gray-50 p-6 rounded-xl border">
+                      <h4 className="text-xl font-semibold mb-3 flex items-center gap-2">
+                        <Landmark className="w-5 h-5" /> Nearby Landmarks
+                      </h4>
+
+                      {landmarks ? (
+                        <ul className="space-y-3 text-sm">
+                          {landmarks.map((lm, i) => (
+                            <li key={i}>
+                              <p className="font-medium">
+                                {lm.displayName?.text}
+                              </p>
+                              <p className="text-gray-500">
+                                {(lm.travelDistanceMeters / 1000).toFixed(2)} km
+                                away
+                              </p>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        "No landmark information available"
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -418,51 +495,52 @@ export default function PlacesPage() {
         })}
       </div>
 
-      {/* PAGINATION */}
+      {/* ---------------------------------------------------
+          PAGINATION
+      ---------------------------------------------------- */}
       {totalPages > 1 && (
-        <div className="flex justify-center items-center gap-3 my-10">
+        <div className="flex justify-center gap-4 mt-6">
           <button
             disabled={currentPage === 1}
-            className="px-4 py-2 bg-gray-200 rounded disabled:opacity-50"
             onClick={() => setCurrentPage((p) => p - 1)}
+            className="px-4 py-2 bg-gray-200 rounded disabled:opacity-50"
           >
             Prev
           </button>
 
-          <span>
-            Page {currentPage} of {totalPages}
+          <span className="font-medium text-lg">
+            Page {currentPage} / {totalPages}
           </span>
 
           <button
             disabled={currentPage === totalPages}
-            className="px-4 py-2 bg-gray-200 rounded disabled:opacity-50"
             onClick={() => setCurrentPage((p) => p + 1)}
+            className="px-4 py-2 bg-gray-200 rounded disabled:opacity-50"
           >
             Next
           </button>
         </div>
       )}
 
-      {/* CONTINUE BUTTON */}
-      <div className="sticky bottom-4 bg-white shadow p-4 rounded-xl flex justify-between items-center border">
+      {/* ---------------------------------------------------
+          STICKY GENERATE ITINERARY BUTTON (CUSTOM)
+      ---------------------------------------------------- */}
+      <div className="sticky bottom-4 mt-8 bg-white border shadow-lg rounded-xl px-6 py-4 flex items-center justify-between">
         <div>
           <p className="font-semibold text-lg">
-            {selectedPlaces.length} selected
+            Selected Places: {selectedPlaces.length}
+          </p>
+          <p className="text-sm text-gray-600">
+            Choose places you want included in your custom itinerary.
           </p>
         </div>
 
         <button
+          onClick={() => router.push("/trip/itinerary")}
           disabled={selectedPlaces.length === 0}
-          className="px-6 py-3 bg-blue-600 text-white rounded-lg disabled:opacity-50"
-          onClick={() => {
-            localStorage.setItem(
-              "selected_places",
-              JSON.stringify(selectedPlaces)
-            );
-            router.push("/trip/itinerary");
-          }}
+          className="px-6 py-3 bg-blue-600 text-white rounded-lg shadow disabled:opacity-50"
         >
-          Continue →
+          Generate Itinerary
         </button>
       </div>
     </div>
