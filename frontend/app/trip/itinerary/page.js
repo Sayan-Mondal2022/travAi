@@ -163,7 +163,7 @@ export default function ItineraryPage() {
     setLoading(true);
 
     try {
-      const url = `${process.env.NEXT_PUBLIC_API_URL}/api/tour/itinerary/generate/`;
+      const url = `${process.env.NEXT_PUBLIC_API_URL}/api/tour/itinerary/custom/`;
 
       const payload = {
         destination,
