@@ -4,7 +4,7 @@ import LandmarkList from "./LandmarkList";
 
 export default function RestaurantCard({ r }) {
   return (
-    <div className="bg-white/60 backdrop-blur-md shadow-md rounded-2xl p-5 transition-all hover:shadow-xl m-2 hover:cursor-pointer">
+    <div className="bg-white/60 backdrop-blur-md shadow-md rounded-2xl p-5 transition-all hover:shadow-xl m-2">
       <p className="font-semibold text-deep_twilight text-lg">
         {safeText(r.name)}
       </p>

@@ -4,7 +4,7 @@ export default function FoodSection({ food }) {
   if (!food) return null;
 
   return (
-    <div>
+    <div className="mt-10 bg-white/60 backdrop-blur-md shadow-lg rounded-2xl p-6">
       <h3 className="text-2xl font-bold text-deep_twilight mb-4">
         Food Suggestions
       </h3>

@@ -31,7 +31,7 @@ export default function SuggestionPanel({ suggestions }) {
       {suggestions.per_day_highlights?.map((d, i) => (
         <div
           key={i}
-          className="bg-white/50 backdrop-blur-md shadow-md rounded-2xl p-5 m-3 transition-all hover:shadow-xl hover:cursor-pointer"
+          className="p-4 bg-white/50 backdrop-blur-md rounded-2xl shadow mt-2 m-3"
         >
           <p className="font-semibold text-deep_twilight">
             Day {d.day}

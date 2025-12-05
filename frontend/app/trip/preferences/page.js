@@ -110,12 +110,12 @@ const TRAVEL_PREFERENCES = [
 
 // Budget ranges for different transport modes
 const BUDGET_RANGES = {
-  default: { min: 1500, step: 500 },
-  flight: { min: 3500, step: 500 },
-  train: { min: 1500, step: 500 },
-  car: { min: 1000, step: 500 },
-  bike: { min: 850, step: 500 },
-  mixed: { min: 2500, step: 500 },
+  default: { min: 500, max: 10000, step: 500 },
+  flight: { min: 1500, max: 10000, step: 500 },
+  train: { min: 800, max: 10000, step: 500 },
+  car: { min: 600, max: 10000, step: 500 },
+  bike: { min: 300, max: 10000, step: 500 },
+  mixed: { min: 1000, max: 10000, step: 500 },
 };
 
 export default function PreferencesStep() {
@@ -550,6 +550,7 @@ export default function PreferencesStep() {
                     value={formData.budget}
                     onChange={handleInputChange}
                     min={suggestedBudget || currentBudgetRange.min}
+                    max={currentBudgetRange.max}
                     className="w-full pl-10 pr-4 py-3 text-lg font-bold text-blue-600 border-2 border-blue-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all duration-500 ease-out backdrop-blur-sm bg-white/50 hover:bg-white/80 hover:border-blue-300 hover:shadow-lg group"
                     placeholder="Enter your budget"
                   />

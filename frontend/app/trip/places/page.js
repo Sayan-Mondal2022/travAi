@@ -17,6 +17,14 @@ export default function PlacesPage() {
     localStorage.removeItem("selected_places_trip_id");
   }, []);
 
+  /* -------------------------------------------------------
+     ALWAYS CLEAR SELECTED PLACES ON PAGE LOAD  (OPTION A)
+  -------------------------------------------------------- */
+  useEffect(() => {
+    localStorage.removeItem("selected_places");
+    localStorage.removeItem("selected_places_trip_id");
+  }, []);
+
   const [activeTab, setActiveTab] = useState("tourist_attractions");
   const [activeMode, setActiveMode] = useState("reference");
   const [placesData, setPlacesData] = useState(null);
@@ -34,12 +42,16 @@ export default function PlacesPage() {
 
   /* -------------------------------------------------------
      LOAD TRIP DATA
+     LOAD TRIP DATA
   -------------------------------------------------------- */
   useEffect(() => {
     try {
       const stored =
+      const stored =
         localStorage.getItem("tripData") || localStorage.getItem("trip_data");
 
+      if (stored) {
+        const parsed = JSON.parse(stored);
       if (stored) {
         const parsed = JSON.parse(stored);
         setTripData(parsed);
@@ -60,6 +72,7 @@ export default function PlacesPage() {
   const experienceType = tripData?.experience_type || "";
 
   /* -------------------------------------------------------
+     FETCH PLACES
      FETCH PLACES
   -------------------------------------------------------- */
   useEffect(() => {
@@ -113,6 +126,27 @@ export default function PlacesPage() {
 
   /* -------------------------------------------------------
      HOVER PANEL LOGIC
+     TOGGLE SELECTION
+  -------------------------------------------------------- */
+  const toggleSelect = (place) => {
+    const id = place.id || place.place_id;
+
+    setSelectedPlaces((prev) => {
+      let updated;
+
+      if (prev.some((p) => (p.id || p.place_id) === id)) {
+        updated = prev.filter((p) => (p.id || p.place_id) !== id);
+      } else {
+        updated = [...prev, place];
+      }
+
+      localStorage.setItem("selected_places", JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  /* -------------------------------------------------------
+     HOVER PANEL LOGIC
   -------------------------------------------------------- */
   const handleMouseEnter = (id) => {
     hoverTimeout.current = setTimeout(() => setHovered(id), 2000);
@@ -130,6 +164,7 @@ export default function PlacesPage() {
   }, []);
 
   /* -------------------------------------------------------
+     UTILITIES
      UTILITIES
   -------------------------------------------------------- */
   const flatten = (obj) => {
@@ -166,6 +201,7 @@ export default function PlacesPage() {
   };
 
   /* -------------------------------------------------------
+     GENERATE ITINERARY
      GENERATE ITINERARY
   -------------------------------------------------------- */
   const handleGenerateItinerary = () => {
@@ -211,8 +247,20 @@ export default function PlacesPage() {
   const pageStart = (currentPage - 1) * ITEMS_PER_PAGE;
   const paginated = list.slice(pageStart, pageStart + ITEMS_PER_PAGE);
 
+  const categoryData =
+    activeMode === "reference"
+      ? placesData?.reference_places
+      : placesData?.recommended_places;
+
+  const list = flatten(categoryData?.[activeTab] || []);
+
+  const totalPages = Math.ceil(list.length / ITEMS_PER_PAGE) || 1;
+  const pageStart = (currentPage - 1) * ITEMS_PER_PAGE;
+  const paginated = list.slice(pageStart, pageStart + ITEMS_PER_PAGE);
+
   return (
     <div className="min-h-screen p-4 pb-32 max-w-7xl mx-auto">
+      
       
       {/* HEADER */}
       <div className="flex items-center justify-between mb-6">
@@ -254,6 +302,7 @@ export default function PlacesPage() {
         </button>
       </div>
 
+      {/* TABS */}
       {/* TABS */}
       <div className="flex gap-6 border-b mb-6 pb-2 text-lg font-medium">
         <button
@@ -306,6 +355,9 @@ export default function PlacesPage() {
           const isSelected = selectedPlaces.some(
             (p) => (p.id || p.place_id) === id
           );
+          const isSelected = selectedPlaces.some(
+            (p) => (p.id || p.place_id) === id
+          );
 
           const address = place.formattedAddress;
           const photos = place.photos;
@@ -327,6 +379,7 @@ export default function PlacesPage() {
               onMouseLeave={handleMouseLeave}
             >
               {/* CARD */}
+              <div className="rounded-xl border bg-white p-3 transition hover:shadow-lg">
               <div className="rounded-xl border bg-white p-3 transition hover:shadow-lg">
                 <PhotoCarousel photos={photos} />
 
@@ -389,6 +442,7 @@ export default function PlacesPage() {
 
                       {reviewSummary && (
                         <p className="italic text-gray-600 mb-6">
+                          {reviewSummary}
                           {reviewSummary}
                         </p>
                       )}
@@ -461,6 +515,9 @@ export default function PlacesPage() {
                         <p className="text-gray-500 text-sm">
                           No landmark information available.
                         </p>
+                        <p className="text-gray-500 text-sm">
+                          No landmark information available.
+                        </p>
                       )}
                     </div>
                   </div>
@@ -496,6 +553,7 @@ export default function PlacesPage() {
         </div>
       )}
 
+      {/* STICKY GENERATE BUTTON */}
       {/* STICKY GENERATE BUTTON */}
       <div className="sticky bottom-4 mt-8 bg-white border shadow-lg rounded-xl px-6 py-4 flex items-center justify-between z-50">
         <div>

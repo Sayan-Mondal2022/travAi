@@ -1,27 +1,19 @@
 // app/layout.js
-import { Geist, Geist_Mono } from "next/font/google";
-import "./globals.css";
-import ChatbotWidget from "@/components/ChatBotWidget";
-
-import "./globals.css";
-import { Quicksand } from "next/font/google";
-
-const quicksand = Quicksand({
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"], // choose weights you need
-});
+import './globals.css';
+import { AuthProvider } from '../context/AuthContext';
 
 export const metadata = {
-  title: "TravAi",
-  description: "Experience the AI powered Trip Planner",
+  title: 'TravAI - AI-Powered Travel Planner',
+  description: 'Plan your perfect trip with AI assistance',
 };
 
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body className={quicksand.className}>
-        {children}
-        <ChatbotWidget/>
+      <body>
+        <AuthProvider>
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );
