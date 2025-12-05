@@ -3,14 +3,14 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { apiGet } from "@/lib/api";
-import { MapPin, Navigation, Star, Landmark } from "lucide-react";
+import { MapPin, Star, Landmark } from "lucide-react";
 import { PhotoCarousel } from "@/components/PhotoCarousel";
 
 export default function PlacesPage() {
   const router = useRouter();
 
   /* -------------------------------------------------------
-     ALWAYS CLEAR SELECTED PLACES ON PAGE LOAD  (OPTION A)
+     CLEAR SELECTED PLACES ON MOUNT
   -------------------------------------------------------- */
   useEffect(() => {
     localStorage.removeItem("selected_places");
@@ -18,40 +18,32 @@ export default function PlacesPage() {
   }, []);
 
   /* -------------------------------------------------------
-     ALWAYS CLEAR SELECTED PLACES ON PAGE LOAD  (OPTION A)
+     STATE
   -------------------------------------------------------- */
-  useEffect(() => {
-    localStorage.removeItem("selected_places");
-    localStorage.removeItem("selected_places_trip_id");
-  }, []);
-
   const [activeTab, setActiveTab] = useState("tourist_attractions");
   const [activeMode, setActiveMode] = useState("reference");
   const [placesData, setPlacesData] = useState(null);
   const [selectedPlaces, setSelectedPlaces] = useState([]);
+  const [tripData, setTripData] = useState(null);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [tripData, setTripData] = useState(null);
-
-  const [hovered, setHovered] = useState(null);
-  const hoverTimeout = useRef(null);
 
   const ITEMS_PER_PAGE = 12;
   const [currentPage, setCurrentPage] = useState(1);
 
+  const [hovered, setHovered] = useState(null);
+  const hoverTimeout = useRef(null);
+
   /* -------------------------------------------------------
-     LOAD TRIP DATA
      LOAD TRIP DATA
   -------------------------------------------------------- */
   useEffect(() => {
     try {
       const stored =
-      const stored =
-        localStorage.getItem("tripData") || localStorage.getItem("trip_data");
+        localStorage.getItem("tripData") ||
+        localStorage.getItem("trip_data");
 
-      if (stored) {
-        const parsed = JSON.parse(stored);
       if (stored) {
         const parsed = JSON.parse(stored);
         setTripData(parsed);
@@ -72,7 +64,6 @@ export default function PlacesPage() {
   const experienceType = tripData?.experience_type || "";
 
   /* -------------------------------------------------------
-     FETCH PLACES
      FETCH PLACES
   -------------------------------------------------------- */
   useEffect(() => {
@@ -105,7 +96,7 @@ export default function PlacesPage() {
   }, [destination, preferences, experienceType]);
 
   /* -------------------------------------------------------
-     TOGGLE SELECTION
+     SELECT / REMOVE PLACE
   -------------------------------------------------------- */
   const toggleSelect = (place) => {
     const id = place.id || place.place_id;
@@ -125,28 +116,7 @@ export default function PlacesPage() {
   };
 
   /* -------------------------------------------------------
-     HOVER PANEL LOGIC
-     TOGGLE SELECTION
-  -------------------------------------------------------- */
-  const toggleSelect = (place) => {
-    const id = place.id || place.place_id;
-
-    setSelectedPlaces((prev) => {
-      let updated;
-
-      if (prev.some((p) => (p.id || p.place_id) === id)) {
-        updated = prev.filter((p) => (p.id || p.place_id) !== id);
-      } else {
-        updated = [...prev, place];
-      }
-
-      localStorage.setItem("selected_places", JSON.stringify(updated));
-      return updated;
-    });
-  };
-
-  /* -------------------------------------------------------
-     HOVER PANEL LOGIC
+     HOVER PANEL
   -------------------------------------------------------- */
   const handleMouseEnter = (id) => {
     hoverTimeout.current = setTimeout(() => setHovered(id), 2000);
@@ -164,8 +134,7 @@ export default function PlacesPage() {
   }, []);
 
   /* -------------------------------------------------------
-     UTILITIES
-     UTILITIES
+     HELPERS
   -------------------------------------------------------- */
   const flatten = (obj) => {
     if (!obj) return [];
@@ -202,7 +171,6 @@ export default function PlacesPage() {
 
   /* -------------------------------------------------------
      GENERATE ITINERARY
-     GENERATE ITINERARY
   -------------------------------------------------------- */
   const handleGenerateItinerary = () => {
     if (selectedPlaces.length === 0) return;
@@ -212,7 +180,7 @@ export default function PlacesPage() {
   };
 
   /* -------------------------------------------------------
-     RENDER
+     LOADING / ERROR UI
   -------------------------------------------------------- */
   if (loading) {
     return (
@@ -236,6 +204,9 @@ export default function PlacesPage() {
     );
   }
 
+  /* -------------------------------------------------------
+     PAGINATION + CATEGORY
+  -------------------------------------------------------- */
   const categoryData =
     activeMode === "reference"
       ? placesData?.reference_places
@@ -247,21 +218,11 @@ export default function PlacesPage() {
   const pageStart = (currentPage - 1) * ITEMS_PER_PAGE;
   const paginated = list.slice(pageStart, pageStart + ITEMS_PER_PAGE);
 
-  const categoryData =
-    activeMode === "reference"
-      ? placesData?.reference_places
-      : placesData?.recommended_places;
-
-  const list = flatten(categoryData?.[activeTab] || []);
-
-  const totalPages = Math.ceil(list.length / ITEMS_PER_PAGE) || 1;
-  const pageStart = (currentPage - 1) * ITEMS_PER_PAGE;
-  const paginated = list.slice(pageStart, pageStart + ITEMS_PER_PAGE);
-
+  /* -------------------------------------------------------
+     PAGE UI
+  -------------------------------------------------------- */
   return (
     <div className="min-h-screen p-4 pb-32 max-w-7xl mx-auto">
-      
-      
       {/* HEADER */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex gap-4">
@@ -303,68 +264,40 @@ export default function PlacesPage() {
       </div>
 
       {/* TABS */}
-      {/* TABS */}
       <div className="flex gap-6 border-b mb-6 pb-2 text-lg font-medium">
-        <button
-          onClick={() => {
-            setActiveTab("tourist_attractions");
-            setCurrentPage(1);
-          }}
-          className={
-            activeTab === "tourist_attractions"
-              ? "text-blue-600 border-b-2 border-blue-600"
-              : "text-gray-500"
-          }
-        >
-          Tourist Places
-        </button>
-
-        <button
-          onClick={() => {
-            setActiveTab("lodging");
-            setCurrentPage(1);
-          }}
-          className={
-            activeTab === "lodging"
-              ? "text-blue-600 border-b-2 border-blue-600"
-              : "text-gray-500"
-          }
-        >
-          Lodging
-        </button>
-
-        <button
-          onClick={() => {
-            setActiveTab("restaurants");
-            setCurrentPage(1);
-          }}
-          className={
-            activeTab === "restaurants"
-              ? "text-blue-600 border-b-2 border-blue-600"
-              : "text-gray-500"
-          }
-        >
-          Restaurants
-        </button>
+        {["tourist_attractions", "lodging", "restaurants"].map((tab) => (
+          <button
+            key={tab}
+            onClick={() => {
+              setActiveTab(tab);
+              setCurrentPage(1);
+            }}
+            className={
+              activeTab === tab
+                ? "text-blue-600 border-b-2 border-blue-600"
+                : "text-gray-500"
+            }
+          >
+            {tab === "tourist_attractions"
+              ? "Tourist Places"
+              : tab.charAt(0).toUpperCase() + tab.slice(1)}
+          </button>
+        ))}
       </div>
 
-      {/* GRID */}
+      {/* GRID OF PLACES */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {paginated.map((place) => {
           const id = place.id || place.place_id;
           const isSelected = selectedPlaces.some(
             (p) => (p.id || p.place_id) === id
           );
-          const isSelected = selectedPlaces.some(
-            (p) => (p.id || p.place_id) === id
-          );
 
-          const address = place.formattedAddress;
           const photos = place.photos;
+          const address = place.formattedAddress;
           const editorial = place["editorialSummary.text"];
           const reviewSummary = place["reviewSummary.text"]?.text;
           const rating = place.rating;
-
           const landmarks = place["addressDescriptor.landmarks"];
 
           const placeLink = place["googleMapsLinks.placeUri"];
@@ -379,7 +312,6 @@ export default function PlacesPage() {
               onMouseLeave={handleMouseLeave}
             >
               {/* CARD */}
-              <div className="rounded-xl border bg-white p-3 transition hover:shadow-lg">
               <div className="rounded-xl border bg-white p-3 transition hover:shadow-lg">
                 <PhotoCarousel photos={photos} />
 
@@ -415,14 +347,7 @@ export default function PlacesPage() {
 
               {/* HOVER PANEL */}
               {hovered === id && (
-                <div
-                  className="
-                    fixed inset-0 z-[9999] overflow-y-auto
-                    bg-white/80 backdrop-blur-lg
-                    shadow-2xl rounded-xl p-8
-                    animate-[fadeIn_0.25s_ease-out]
-                  "
-                >
+                <div className="fixed inset-0 z-[9999] overflow-y-auto bg-white/80 backdrop-blur-lg shadow-2xl rounded-xl p-8 animate-[fadeIn_0.25s_ease-out]">
                   <button
                     onClick={() => setHovered(null)}
                     className="absolute top-4 right-6 text-gray-700 hover:text-black text-3xl font-bold"
@@ -442,7 +367,6 @@ export default function PlacesPage() {
 
                       {reviewSummary && (
                         <p className="italic text-gray-600 mb-6">
-                          {reviewSummary}
                           {reviewSummary}
                         </p>
                       )}
@@ -492,6 +416,7 @@ export default function PlacesPage() {
                       )}
                     </div>
 
+                    {/* LANDMARKS */}
                     <div className="w-1/3 bg-gray-50 p-6 rounded-xl border">
                       <h4 className="text-xl font-semibold mb-3 flex items-center gap-2">
                         <Landmark className="w-5 h-5" /> Nearby Landmarks
@@ -512,9 +437,6 @@ export default function PlacesPage() {
                           ))}
                         </ul>
                       ) : (
-                        <p className="text-gray-500 text-sm">
-                          No landmark information available.
-                        </p>
                         <p className="text-gray-500 text-sm">
                           No landmark information available.
                         </p>
@@ -553,7 +475,6 @@ export default function PlacesPage() {
         </div>
       )}
 
-      {/* STICKY GENERATE BUTTON */}
       {/* STICKY GENERATE BUTTON */}
       <div className="sticky bottom-4 mt-8 bg-white border shadow-lg rounded-xl px-6 py-4 flex items-center justify-between z-50">
         <div>
