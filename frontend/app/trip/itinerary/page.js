@@ -453,7 +453,7 @@ export default function ItineraryPage() {
           const placeLink = place["googleMapsLinks.placeUri"];
           const directionLink = place["googleMapsLinks.directionsUri"];
           const reviewsLink = place["googleMapsLinks.reviewsUri"];
-          const landmarks = place["addressDescriptor.landmarks"];
+          const landmarks = place["addressDescriptor?.landmarks"] ?? [];
 
           return (
             <div
@@ -590,7 +590,7 @@ export default function ItineraryPage() {
                         Nearby Landmarks
                       </h4>
 
-                      {landmarks && landmarks.length > 0 ? (
+                      {Array.isArray(landmarks) && landmarks.length > 0 ? (
                         <ul className="space-y-3 text-sm">
                           {landmarks.map((lm, idx) => (
                             <li key={idx}>

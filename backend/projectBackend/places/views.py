@@ -4,14 +4,11 @@ import requests
 import logging
 from datetime import datetime
 from typing import Dict, Any, List
-
 from django.http import JsonResponse
 from django.conf import settings
 from dotenv import load_dotenv
 import googlemaps
-
 from ninja import Router, Body
-
 from places.services.itinerary import GeminiItineraryService
 from places.services.get_weather import WeatherService
 from places.services.get_places import get_places_data
@@ -19,6 +16,24 @@ from places.services.place_queries import (
     generate_tourist_queries,
     generate_restaurant_queries,
     generate_lodging_queries,
+)
+from places.services.utility_helpers import (
+    get_coordinates,
+    group_places_by_preference,
+    fetch_places_data,
+    filter_textSearch_place_data,
+    filter_new_places,
+)
+from places.services.itinerary_helpers_custom import (
+    _segregate_and_simplify_places,
+    _build_places_plan,
+    _helper_custom_based,
+    _helper_ai_based, 
+)
+from places.services.db_helpers import (
+    build_cache_key,
+    save_trip_response,
+    load_trip_response
 )
 from places.services.itinerary_helpers import build_daywise_place_plan
 
@@ -33,196 +48,10 @@ GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 gmaps = googlemaps.Client(key=GOOGLE_API_KEY)
 weather = WeatherService(api_key=GOOGLE_API_KEY)
 
-weather_data = {}
-
 # ===== GLOBAL HASHSETS TO STORE UNIQUE PLACE IDs (for current request lifetime) =====
 PREF_TOURIST_SET: set[str] = set()
 PREF_LODGING_SET: set[str] = set()
 PREF_RESTAURANT_SET: set[str] = set()
-
-
-# ======================================================================
-# BASIC UTILITIES
-# ======================================================================
-def get_coordinates(destination: str):
-    """
-    Geocode a destination string to (lat, lng, formatted_address).
-    """
-    try:
-        geocode_result = gmaps.geocode(destination)
-        if not geocode_result:
-            return None, None, f"Could not find location: {destination}"
-        location = geocode_result[0]["geometry"]["location"]
-        formatted_address = geocode_result[0].get("formatted_address", destination)
-
-        latitude = location["lat"]
-        longitude = location["lng"]
-
-        return latitude, longitude, formatted_address
-    except Exception as e:
-        print(f"Geocoding error for {destination}: {e}")
-        return None, None, f"Geocoding failed: {str(e)}"
-
-
-def safe_str(value):
-    """Convert any type (dict, list, None, int, etc.) safely to lowercaseable string."""
-    if isinstance(value, dict):
-        return " ".join([safe_str(v) for v in value.values()])
-    if isinstance(value, list):
-        return " ".join([safe_str(v) for v in value])
-    if value is None:
-        return ""
-    return str(value)
-
-
-def group_places_by_preference(places: List[Dict[str, Any]], preferences_list: List[str]) -> Dict[str, List[Dict[str, Any]]]:
-    """
-    Groups places based on whether the place-related text contains a given preference term.
-    Returns:
-        {
-          "<preference1>": [...],
-          "<preference2>": [...],
-          "_others": [...]
-        }
-    """
-    grouped: Dict[str, List[Dict[str, Any]]] = {pref: [] for pref in preferences_list}
-    grouped["_others"] = []
-
-    for place in places:
-        combined_text = (
-            safe_str(place.get("name"))
-            + " "
-            + safe_str(place.get("types"))
-            + " "
-            + safe_str(place.get("editorialSummary.text"))
-            + " "
-            + safe_str(place.get("reviewSummary.text"))
-            + " "
-            + safe_str(place.get("formattedAddress"))
-        ).lower()
-
-        matched = False
-        for pref in preferences_list:
-            if pref.lower() in combined_text:
-                grouped[pref].append(place)
-                matched = True
-                break
-
-        if not matched:
-            grouped["_others"].append(place)
-
-    return grouped
-
-
-def filter_new_places(data: List[Dict[str, Any]], container_set: set[str]) -> List[Dict[str, Any]]:
-    """
-    Filter out places that have already been seen in container_set.
-    Works with either 'id' or 'place_id' keys.
-    """
-    filtered = []
-    for place in data:
-        pid = place.get("id") or place.get("place_id")
-        if pid and pid not in container_set:
-            container_set.add(pid)
-            filtered.append(place)
-    return filtered
-
-
-def filter_textSearch_place_data(raw_data: Dict[str, Any]) -> List[Dict[str, Any]]:
-    filtered_places = []
-
-    for place in raw_data.get("places", []):
-        filtered_place = {
-            "name": place.get("name"),
-            "id": place.get("id"),
-            "types": place.get("types"),
-            "displayName": place.get("displayName", {}).get("text"),
-            "internationalPhoneNumber": place.get("internationalPhoneNumber"),
-            "formattedAddress": place.get("formattedAddress"),
-            "editorialSummary.text": place.get("editorialSummary", {}).get("text"),
-            "addressDescriptor.landmarks": place.get("addressDescriptor", {}).get("landmarks"),
-            "googleMapsLinks.directionsUri": place.get("googleMapsLinks", {}).get("directionsUri"),
-            "googleMapsLinks.placeUri": place.get("googleMapsLinks", {}).get("placeUri"),
-            "googleMapsLinks.reviewsUri": place.get("googleMapsLinks", {}).get("reviewsUri"),
-            "googleMapsLinks.photosUri": place.get("googleMapsLinks", {}).get("photosUri"),
-            "reviewSummary.text": place.get("reviewSummary", {}).get("text"),
-            # ADD THESE IMPORTANT FIELDS:
-            "rating": place.get("rating"),  # Overall rating (0-5)
-            "userRatingCount": place.get("userRatingCount"),  # Number of reviews
-            "priceLevel": place.get("priceLevel"),  # Price range indicator (0-4)
-            "websiteUri": place.get("websiteUri"),  # Official website
-            "location": place.get("location"),  # Coordinates (lat, lng)
-            "currentOpeningHours": place.get("currentOpeningHours", {}).get("weekdayDescriptions"),
-            "photos": [photo.get("name") for photo in place.get("photos", [])[:3]],  # First 3 photos
-        }
-        filtered_places.append(filtered_place)
-
-    return filtered_places
-
-def fetch_places_data(api_key: str, query: str) -> Dict[str, Any]:
-    """
-    Calls the Google Places Text Search API.
-    """
-    url = "https://places.googleapis.com/v1/places:searchText"
-
-    headers = {
-        "X-Goog-Api-Key": api_key,
-        "Content-Type": "application/json",
-        "X-Goog-FieldMask": "*",
-    }
-
-    body = {"textQuery": query}
-
-    try:
-        response = requests.post(url, headers=headers, json=body, timeout=10)
-        response.raise_for_status()
-        return response.json()
-
-    except requests.RequestException as e:
-        print(f"❌ Places API request failed: {e}")
-        return None
-
-
-# ======================================================================
-# DB HELPERS — STORE FULL RESPONSE PER SEARCH
-# ======================================================================
-def build_cache_key(destination: str, preferences_list: List[str], experience_type: str) -> str:
-    """
-    Build a deterministic cache key based on destination + experience + preferences.
-    """
-    norm_dest = destination.strip().lower()
-    norm_exp = str(experience_type).strip().lower()
-    norm_prefs = sorted([p.strip().lower() for p in preferences_list]) if preferences_list else []
-    return f"{norm_dest}__{norm_exp}__{'|'.join(norm_prefs)}"
-
-
-def save_trip_response(cache_key: str, response_data: Dict[str, Any]) -> None:
-    """
-    Save or update the full response for a given cache_key.
-    Stored in: settings.MONGO_DB.trip_places_cache
-    """
-    doc = dict(response_data)
-    doc["_id"] = cache_key
-    doc["cache_key"] = cache_key
-    doc["last_updated"] = datetime.now().isoformat()
-
-    settings.MONGO_DB.trip_places_cache.update_one(
-        {"_id": cache_key},
-        {"$set": doc},
-        upsert=True,
-    )
-
-
-def load_trip_response(cache_key: str) -> Dict[str, Any] | None:
-    """
-    Load a previously saved response for this cache_key, if available.
-    """
-    doc = settings.MONGO_DB.trip_places_cache.find_one({"_id": cache_key})
-    if doc:
-        doc["_id"] = str(doc["_id"])
-        return doc
-    return None
-
 
 # ======================================================================
 # OLD NEARBY PLACES API (FALLBACK ONLY)
@@ -785,9 +614,17 @@ def get_places_for_trip(request, trip_id: str):
 @tour_router.post("/itinerary/custom/")
 async def generate_custom_itinerary(request, payload: dict = Body(...)):
     """
-    CUSTOM MODE PIPELINE → VALIDATION → BUILD places_plan → CALL Gemini AI
+    CUSTOM ITINERARY LOGIC:
+    - If user selection satisfies rules → generate normal custom itinerary
+    - If invalid → generate TWO AI itineraries:
+        1. custom-based AI itinerary
+        2. full AI itinerary
+    - Always return mode + valid so frontend can toggle UI
     """
 
+    # ----------------------------------------------------------
+    # EXTRACT INPUT
+    # ----------------------------------------------------------
     destination = payload.get("destination")
     days = int(payload.get("days", 1))
     preferences = payload.get("preferences", [])
@@ -799,125 +636,107 @@ async def generate_custom_itinerary(request, payload: dict = Body(...)):
     days = min(days, 6)
 
     if not destination:
-        return {"success": False, "error": "Destination is required."}
+        return JsonResponse({"success": False, "error": "Destination is required."})
 
+    # No places at all → AI-only itinerary
     if not custom_places:
-        return {"success": False, "error": "You must select at least some places."}
-
-    # -----------------------------------
-    # CLASSIFICATION
-    # -----------------------------------
-    tourist = []
-    lodging = []
-    restaurants = []
-
-    for p in custom_places:
-        types = p.get("types", [])
-        if "lodging" in types:
-            lodging.append(p)
-        elif "restaurant" in types:
-            restaurants.append(p)
-        else:
-            tourist.append(p)
-
-    # -----------------------------------
-    # VALIDATIONS
-    # -----------------------------------
-
-    # Lodging
-    if len(lodging) == 0:
-        return {"success": False, "error": "Please select at least one lodging option."}
-
-    # Tourist count
-    required = 3 * days
-    if len(tourist) < required:
-        return {
-            "success": False,
-            "error": f"You selected {len(tourist)} tourist places but need at least {required} places for {days} days."
-        }
-
-    # Restaurants
-    if len(restaurants) == 0:
-        return {"success": False, "error": "At least one restaurant is required."}
-
-    # -----------------------------------
-    # WEATHER FETCH
-    # -----------------------------------
-    lat, lng, _ = get_coordinates(destination)
-    weather_info = weather.get_forecast_weather(lat, lng, days)
-
-    # -----------------------------------
-    # BUILD places_plan (this is what AI uses)
-    # -----------------------------------
-    from places.services.itinerary_helpers import _simplify_place_for_ai
-
-    daywise_plan = []
-    tourist_idx = 0
-
-    lodging_ai = [_simplify_place_for_ai(h) for h in lodging[:5]]
-    restaurants_ai = [_simplify_place_for_ai(r) for r in restaurants]
-
-    for d in range(days):
-        todays_attractions = tourist[tourist_idx : tourist_idx + 3]
-        tourist_idx += 3
-
-        todays_ai = [_simplify_place_for_ai(p) for p in todays_attractions]
-
-        rest_block = {
-            "breakfast": restaurants_ai[:3],
-            "lunch": restaurants_ai[:3],
-            "dinner": restaurants_ai[:3],
-        }
-
-        daywise_plan.append({
-            "day": d + 1,
-            "attractions": todays_ai,
-            "restaurants": rest_block,
-            "lodging_options": lodging_ai if d == 0 else [],
+        ai_itinerary = await _helper_ai_based(destination, days, preferences, budget, group_size, travel_style)
+        return JsonResponse({
+            "success": True,
+            "valid": False,
+            "mode": "custom",
+            "message": "No places selected — generated AI itinerary.",
+            "custom_itinerary": [],
+            "ai_itinerary": ai_itinerary
         })
 
-    # -----------------------------------
-    # PREPARE AI REQUEST PAYLOAD
-    # -----------------------------------
-    request_data = {
+    # ----------------------------------------------------------
+    # 1. SEGREGATE + SIMPLIFY PLACES
+    # ----------------------------------------------------------
+    seg = _segregate_and_simplify_places(custom_places)
+    tourist_s = seg["tourist"]
+    lodging_s = seg["lodging"]
+    restaurants_s = seg["restaurants"]
+
+    # ----------------------------------------------------------
+    # 2. VALIDATION
+    # ----------------------------------------------------------
+    required_tourist = 3 * days
+
+    valid = (
+        len(lodging_s) >= 1 and
+        len(restaurants_s) >= 1 and
+        len(tourist_s) >= required_tourist
+    )
+
+    # ----------------------------------------------------------
+    # 3. WEATHER FETCH (only for valid custom itinerary)
+    # ----------------------------------------------------------
+    try:
+        lat, lng, _ = get_coordinates(destination)
+        weather_info = weather.get_forecast_weather(lat, lng, days)
+    except:
+        weather_info = None  # weather optional now
+    
+    # Build daywise place plan
+    places_plan = _build_places_plan(tourist_s, lodging_s, restaurants_s, days)
+
+    # ----------------------------------------------------------
+    # 4. INVALID CASE → RETURN TWO ITINERARIES
+    # ----------------------------------------------------------
+    if not valid:
+        # CUSTOM-BASED AI (uses user's places but incomplete)
+        custom_ai_itinerary = await _helper_custom_based(
+            destination, days, preferences, budget, group_size, travel_style, places_plan, weather_info
+        )
+
+        # FULL AI (ignores user places)
+        full_ai_itinerary = await _helper_ai_based(
+            destination, days, preferences, budget, group_size, travel_style
+        )
+
+        return JsonResponse({
+            "success": True,
+            "valid": valid,
+            "mode": "custom",
+            "message": "User selection is incomplete — showing AI + Custom itineraries.",
+            "custom_itinerary": custom_ai_itinerary,
+            "ai_itinerary": full_ai_itinerary
+        })
+
+    # ----------------------------------------------------------
+    # 5. VALID CASE → NORMAL CUSTOM ITINERARY
+    # ----------------------------------------------------------
+    custom_payload = {
         "destination": destination,
         "duration_days": days,
         "preferences": preferences,
         "budget": budget,
         "group_size": group_size,
         "travel_style": travel_style,
-
-        # Key AI inputs:
-        "places_plan": daywise_plan,
+        "places_plan": places_plan,
         "weather": weather_info,
-
-        # To let Gemini know mode = custom
         "mode": "custom"
     }
 
-    # -----------------------------------
-    # CALL GEMINI AI
-    # -----------------------------------
     gemini = GeminiItineraryService()
-    ai_itinerary = await gemini.generate_itinerary(request_data)
+    itinerary = await gemini.generate_itinerary(custom_payload)
 
-    # -----------------------------------
-    # SAVE METADATA
-    # -----------------------------------
+    # Save metadata
     doc = {
         "destination": destination,
         "days": days,
         "mode": "custom",
+        "valid": True,
         "preferences": preferences,
         "generated_at": datetime.now(),
     }
     result = settings.MONGO_DB.itineraries.insert_one(doc)
 
-    # -----------------------------------
-    # FINAL RESPONSE
-    # -----------------------------------
     return JsonResponse({
         "success": True,
-        "itinerary": ai_itinerary,
+        "valid": True,
+        "mode": "custom",
+        "itinerary": itinerary,
         "itinerary_id": str(result.inserted_id),
     })
