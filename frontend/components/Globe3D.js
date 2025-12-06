@@ -1,8 +1,11 @@
+// components/Globe3D.js
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Globe from 'react-globe.gl';
 
-function computeArcPoints(start, end) {
+// Compute arc points with altitude for curved flight path
+function computeArcPoints(start, end, numPoints = 50) {
   const toRad = (d) => (d * Math.PI) / 180;
   const toDeg = (r) => (r * 180) / Math.PI;
 
@@ -11,319 +14,280 @@ function computeArcPoints(start, end) {
   const lat2 = toRad(end.lat);
   const lon2 = toRad(end.lng);
 
+  // Calculate great circle distance
+  const R = 6371; // Earth's radius in km
+  const dLat = lat2 - lat1;
+  const dLon = lon2 - lon1;
+  
+  const a = Math.sin(dLat / 2) ** 2 +
+            Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const distance = R * c;
+
+  // Calculate midpoint for arc peak
   const bx = Math.cos(lat2) * Math.cos(lon2 - lon1);
   const by = Math.cos(lat2) * Math.sin(lon2 - lon1);
-
   const midLat = Math.atan2(
     Math.sin(lat1) + Math.sin(lat2),
     Math.sqrt((Math.cos(lat1) + bx) ** 2 + by ** 2)
   );
-
   const midLng = lon1 + Math.atan2(by, Math.cos(lat1) + bx);
 
-  const distance = Math.acos(
-    Math.sin(lat1) * Math.sin(lat2) +
-    Math.cos(lat1) * Math.cos(lat2) * Math.cos(lon2 - lon1)
-  ) * 6371;
+  // Calculate arc altitude based on distance
+  const altitude = Math.min(Math.max(distance * 0.15, 0.05), 0.3);
 
-  const altitude = Math.min(Math.max(distance * 800, 300000), 1200000);
+  const points = [];
+  for (let i = 0; i < numPoints; i++) {
+    const t = i / (numPoints - 1);
+    const t2 = t * t;
+    const mt = 1 - t;
+    const mt2 = mt * mt;
+    
+    // Quadratic Bezier interpolation
+    const lat = mt2 * start.lat + 2 * mt * t * toDeg(midLat) + t2 * end.lat;
+    const lng = mt2 * start.lng + 2 * mt * t * toDeg(midLng) + t2 * end.lng;
+    const alt = 2 * mt * t * altitude; // Parabolic altitude
+    
+    points.push([lat, lng, alt]);
+  }
 
-  return [
-    { lat: start.lat, lng: start.lng, altitude: 0 },
-    { lat: toDeg(midLat), lng: toDeg(midLng), altitude: altitude },
-    { lat: end.lat, lng: end.lng, altitude: 0 },
-  ];
+  return points;
 }
 
 export default function Globe3D({ startPoint, endPoint }) {
-  const mapRef = useRef(null);
-  const objectsRef = useRef([]);
+  const globeRef = useRef();
   const [rotationEnabled, setRotationEnabled] = useState(true);
-  const [mapReady, setMapReady] = useState(false);
-  const animationFrameRef = useRef(null);
   const [showResetButton, setShowResetButton] = useState(false);
   const savedViewRef = useRef(null);
+  const [markers, setMarkers] = useState([]);
+  const [pathsData, setPathsData] = useState([]);
 
+  // Setup auto-rotation
   useEffect(() => {
-    if (window.google?.maps) {
-      setMapReady(true);
-      return;
-    }
-
-    const script = document.createElement("script");
-    script.src =
-      `https://maps.googleapis.com/maps/api/js?key=${
-        process.env.NEXT_PUBLIC_GOOGLE_KEY
-      }&v=alpha&libraries=maps3d&channel=2`;
-
-    script.async = true;
-    script.onload = () => {
-      console.log("✅ 3D Maps API loaded");
-      setMapReady(true);
-    };
-    document.body.appendChild(script);
-  }, []);
-
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !rotationEnabled) {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
+    if (globeRef.current) {
+      const controls = globeRef.current.controls();
+      if (controls) {
+        controls.autoRotate = rotationEnabled;
+        controls.autoRotateSpeed = 0.8;
+        controls.enableZoom = false; // Disable scroll zoom
       }
-      return;
     }
-
-    let lastTime = Date.now();
-    
-    const rotate = () => {
-      const now = Date.now();
-      const delta = now - lastTime;
-      lastTime = now;
-
-      const heading = Number(map.getAttribute("heading") || 0);
-      map.setAttribute("heading", ((heading + 0.03 * (delta / 16)) % 360).toString());
-      
-      animationFrameRef.current = requestAnimationFrame(rotate);
-    };
-
-    rotate();
-    
-    return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-    };
   }, [rotationEnabled]);
 
+  // Initialize globe view
   useEffect(() => {
-    if (!mapReady) return;
+    if (globeRef.current && !startPoint && !endPoint) {
+      globeRef.current.pointOfView({ lat: 20, lng: 10, altitude: 2.5 }, 1000);
+    }
+  }, []);
 
-    const map = mapRef.current;
-    if (!map) return;
-
-    objectsRef.current.forEach((o) => {
-      try {
-        o.remove();
-      } catch (e) {
-        console.warn("Error removing object:", e);
-      }
-    });
-    objectsRef.current = [];
-
+  // Handle route visualization
+  useEffect(() => {
     if (!startPoint && !endPoint) {
+      setMarkers([]);
+      setPathsData([]);
       setRotationEnabled(true);
       setShowResetButton(false);
-      map.setAttribute("center", "20,10");
-      map.setAttribute("range", "15000000");
-      map.setAttribute("tilt", "0");
-      map.setAttribute("heading", "0");
       savedViewRef.current = null;
+      
+      if (globeRef.current) {
+        globeRef.current.pointOfView({ lat: 20, lng: 10, altitude: 2.5 }, 1000);
+      }
       return;
     }
 
     if (startPoint && endPoint) {
       setRotationEnabled(false);
       setShowResetButton(true);
-    }
 
-    const addMarker = (pt, color = "#FF0000", label = "") => {
-      if (!pt) return;
-
-      const m = document.createElement("gmp-marker-3d");
-      m.setAttribute("position", `${pt.lat},${pt.lng}`);
-      m.setAttribute("altitude-mode", "RELATIVE_TO_GROUND");
-      
-      const template = document.createElement("template");
-      
-      const svg = `
-        <svg xmlns="http://www.w3.org/2000/svg" width="160" height="100" viewBox="0 0 160 100">
-          <defs>
-            <filter id="shadow-${label}" x="-50%" y="-50%" width="200%" height="200%">
-              <feGaussianBlur in="SourceAlpha" stdDeviation="3"/>
-              <feOffset dx="0" dy="3" result="offsetblur"/>
-              <feComponentTransfer>
-                <feFuncA type="linear" slope="0.5"/>
-              </feComponentTransfer>
-              <feMerge>
-                <feMergeNode/>
-                <feMergeNode in="SourceGraphic"/>
-              </feMerge>
-            </filter>
-          </defs>
-          <g transform="translate(80, 65)">
-            <ellipse cx="0" cy="25" rx="12" ry="4" fill="rgba(0,0,0,0.4)"/>
-            <path d="M0,-30 C-12,-30 -18,-18 -18,-9 C-18,0 0,30 0,30 C0,30 18,0 18,-9 C18,-18 12,-30 0,-30 Z" 
-                  fill="${color}" stroke="white" stroke-width="3" filter="url(#shadow-${label})"/>
-            <circle cx="0" cy="-12" r="6" fill="white"/>
-          </g>
-          <g transform="translate(80, 18)">
-            <rect x="-60" y="-14" width="120" height="28" rx="14" 
-                  fill="white" stroke="${color}" stroke-width="2.5" filter="url(#shadow-${label})"/>
-            <text x="0" y="5" text-anchor="middle" 
-                  font-family="Arial, sans-serif" font-size="14" font-weight="bold" 
-                  fill="${color}">${label}</text>
-          </g>
-        </svg>
-      `;
-      
-      template.innerHTML = svg;
-      m.appendChild(template);
-
-      map.appendChild(m);
-      objectsRef.current.push(m);
-    };
-
-    if (startPoint) addMarker(startPoint, "#22C55E", startPoint.label);
-    if (endPoint) addMarker(endPoint, "#EF4444", endPoint.label);
-
-    if (startPoint && endPoint) {
-      const path = computeArcPoints(startPoint, endPoint);
-
-      // Create multiple polyline segments for better visibility
-      const numSegments = 50;
-      const allPoints = [];
-      
-      for (let i = 0; i < numSegments; i++) {
-        const t = i / (numSegments - 1);
-        const t2 = t * t;
-        const t3 = t2 * t;
-        const mt = 1 - t;
-        const mt2 = mt * mt;
-        const mt3 = mt2 * mt;
-        
-        // Quadratic Bezier interpolation
-        const lat = mt2 * path[0].lat + 2 * mt * t * path[1].lat + t2 * path[2].lat;
-        const lng = mt2 * path[0].lng + 2 * mt * t * path[1].lng + t2 * path[2].lng;
-        const alt = mt2 * path[0].altitude + 2 * mt * t * path[1].altitude + t2 * path[2].altitude;
-        
-        allPoints.push({ lat, lng, altitude: alt });
+      // Create markers
+      const newMarkers = [];
+      if (startPoint) {
+        newMarkers.push({
+          lat: startPoint.lat,
+          lng: startPoint.lng,
+          name: startPoint.label,
+          color: '#22C55E',
+          emoji: '📍'
+        });
       }
+      if (endPoint) {
+        newMarkers.push({
+          lat: endPoint.lat,
+          lng: endPoint.lng,
+          name: endPoint.label,
+          color: '#EF4444',
+          emoji: '🎯'
+        });
+      }
+      setMarkers(newMarkers);
 
-      // Main bright path
-      const poly = document.createElement("gmp-polyline-3d");
-      poly.setAttribute("altitude-mode", "ABSOLUTE");
-      poly.setAttribute("stroke-color", "#00D9FF");
-      poly.setAttribute("stroke-width", "8");
-      
-      const coordinates = allPoints.map(p => 
-        `${p.lat.toFixed(6)},${p.lng.toFixed(6)},${p.altitude.toFixed(1)}`
-      ).join(' ');
-      
-      poly.setAttribute("coordinates", coordinates);
+      // Create curved flight path
+      const arcPoints = computeArcPoints(startPoint, endPoint, 50);
+      setPathsData([{ coords: arcPoints }]);
 
-      map.appendChild(poly);
-      objectsRef.current.push(poly);
-
-      // Outer glow
-      const polyGlow = document.createElement("gmp-polyline-3d");
-      polyGlow.setAttribute("altitude-mode", "ABSOLUTE");
-      polyGlow.setAttribute("stroke-color", "#0088CC");
-      polyGlow.setAttribute("stroke-width", "14");
-      polyGlow.setAttribute("stroke-opacity", "0.4");
-      polyGlow.setAttribute("coordinates", coordinates);
-
-      map.appendChild(polyGlow);
-      objectsRef.current.push(polyGlow);
-
+      // Calculate camera position
       const midLat = (startPoint.lat + endPoint.lat) / 2;
       const midLng = (startPoint.lng + endPoint.lng) / 2;
 
+      const toRad = (d) => (d * Math.PI) / 180;
       const R = 6371;
-      const lat1Rad = startPoint.lat * (Math.PI / 180);
-      const lat2Rad = endPoint.lat * (Math.PI / 180);
-      const dLat = (endPoint.lat - startPoint.lat) * (Math.PI / 180);
-      const dLng = (endPoint.lng - startPoint.lng) * (Math.PI / 180);
-
+      const dLat = toRad(endPoint.lat - startPoint.lat);
+      const dLng = toRad(endPoint.lng - startPoint.lng);
       const a = Math.sin(dLat / 2) ** 2 +
-                Math.cos(lat1Rad) * Math.cos(lat2Rad) *
+                Math.cos(toRad(startPoint.lat)) * Math.cos(toRad(endPoint.lat)) *
                 Math.sin(dLng / 2) ** 2;
       const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
       const distance = R * c;
 
-      const range = Math.min(
-        Math.max(distance * 2000, 800000), 
-        12000000
-      );
+      const altitude = Math.min(Math.max(distance / 3000, 1.5), 3);
 
-      const dLon = (endPoint.lng - startPoint.lng) * (Math.PI / 180);
-      const y = Math.sin(dLon) * Math.cos(lat2Rad);
-      const x = Math.cos(lat1Rad) * Math.sin(lat2Rad) -
-                Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLon);
-      const bearing = Math.atan2(y, x) * (180 / Math.PI);
-      const heading = (bearing + 360) % 360;
+      savedViewRef.current = { lat: midLat, lng: midLng, altitude };
 
-      savedViewRef.current = {
-        center: `${midLat},${midLng}`,
-        range: range.toString(),
-        tilt: "55",
-        heading: heading.toString()
-      };
-
-      map.setAttribute("center", savedViewRef.current.center);
-      map.setAttribute("range", savedViewRef.current.range);
-      map.setAttribute("tilt", savedViewRef.current.tilt);
-      map.setAttribute("heading", savedViewRef.current.heading);
+      if (globeRef.current) {
+        globeRef.current.pointOfView(savedViewRef.current, 2000);
+      }
 
       console.log(`✈️ Flight path created: ${distance.toFixed(0)}km`);
     } else if (startPoint || endPoint) {
       const pt = startPoint || endPoint;
-      map.setAttribute("center", `${pt.lat},${pt.lng}`);
-      map.setAttribute("range", "3000000");
-      map.setAttribute("tilt", "45");
+      const newMarkers = [{
+        lat: pt.lat,
+        lng: pt.lng,
+        name: pt.label,
+        color: startPoint ? '#22C55E' : '#EF4444',
+        emoji: startPoint ? '📍' : '🎯'
+      }];
+      setMarkers(newMarkers);
+      setPathsData([]);
+      
+      if (globeRef.current) {
+        globeRef.current.pointOfView({ lat: pt.lat, lng: pt.lng, altitude: 2 }, 1500);
+      }
       setShowResetButton(false);
     }
-  }, [mapReady, startPoint, endPoint]);
+  }, [startPoint, endPoint]);
 
   const handleResetView = () => {
-    const map = mapRef.current;
-    if (!map || !savedViewRef.current) return;
+    if (globeRef.current && savedViewRef.current) {
+      globeRef.current.pointOfView(savedViewRef.current, 1000);
+    }
+  };
 
-    map.setAttribute("center", savedViewRef.current.center);
-    map.setAttribute("range", savedViewRef.current.range);
-    map.setAttribute("tilt", savedViewRef.current.tilt);
-    map.setAttribute("heading", savedViewRef.current.heading);
+  const handleZoomIn = () => {
+    if (globeRef.current) {
+      const pov = globeRef.current.pointOfView();
+      globeRef.current.pointOfView({ 
+        lat: pov.lat, 
+        lng: pov.lng, 
+        altitude: Math.max(pov.altitude - 0.5, 1) 
+      }, 300);
+    }
+  };
+
+  const handleZoomOut = () => {
+    if (globeRef.current) {
+      const pov = globeRef.current.pointOfView();
+      globeRef.current.pointOfView({ 
+        lat: pov.lat, 
+        lng: pov.lng, 
+        altitude: Math.min(pov.altitude + 0.5, 4) 
+      }, 300);
+    }
   };
 
   return (
     <div className="w-full h-full bg-gradient-to-b from-slate-900 to-slate-800 rounded-3xl overflow-hidden relative flex items-center justify-center">
-      {!mapReady && (
-        <div className="absolute inset-0 flex items-center justify-center z-10">
-          <div className="text-white text-lg animate-pulse">Loading Globe...</div>
-        </div>
-      )}
-      
-      <gmp-map-3d
-        ref={mapRef}
-        center="20,10"
-        range="15000000"
-        tilt="0"
-        heading="0"
-        mode="satellite"
-        style={{ 
-          width: "100%", 
-          height: "100%", 
-          display: "block"
+      <Globe
+        ref={globeRef}
+        width={window.innerWidth > 1024 ? 800 : 600}
+        height={window.innerWidth > 1024 ? 800 : 600}
+        globeImageUrl="//unpkg.com/three-globe/example/img/earth-blue-marble.jpg"
+        backgroundImageUrl="//unpkg.com/three-globe/example/img/night-sky.png"
+        
+        // Custom HTML markers
+        htmlElementsData={markers}
+        htmlElement={(d) => {
+          const el = document.createElement('div');
+          el.style.pointerEvents = 'none';
+          
+          el.innerHTML = `
+            <div style="
+              position: absolute;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              transform: translate(-50%, -100%);
+              pointer-events: none;
+            ">
+              <div style="
+                background: ${d.color};
+                color: white;
+                padding: 4px 8px;
+                border-radius: 4px;
+                font-size: 11px;
+                font-weight: 600;
+                white-space: nowrap;
+                box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+                margin-bottom: 4px;
+                border: 1.5px solid white;
+                font-family: system-ui, -apple-system, sans-serif;
+              ">
+                ${d.emoji} ${d.name}
+              </div>
+              
+              <svg width="24" height="30" viewBox="0 0 40 50" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));">
+                <ellipse cx="20" cy="48" rx="6" ry="2" fill="rgba(0,0,0,0.3)"/>
+                <path d="M20 2C12.8 2 7 7.8 7 15c0 9.5 13 31 13 31s13-21.5 13-31c0-7.2-5.8-13-13-13z" 
+                  fill="${d.color}" 
+                  stroke="white" 
+                  stroke-width="2.5"
+                  stroke-linejoin="round"/>
+                <circle cx="20" cy="15" r="6" fill="white" opacity="0.95"/>
+                <circle cx="20" cy="15" r="3" fill="${d.color}"/>
+                <ellipse cx="16" cy="12" rx="2" ry="3" fill="white" opacity="0.4"/>
+              </svg>
+            </div>
+          `;
+          
+          return el;
         }}
+        
+        // Curved flight paths
+        pathsData={pathsData}
+        pathPoints="coords"
+        pathPointLat={p => p[0]}
+        pathPointLng={p => p[1]}
+        pathPointAlt={p => p[2]}
+        pathColor={() => ['#00D9FF', '#EF4444']}
+        pathStroke={4}
+        pathDashLength={0.3}
+        pathDashGap={0.1}
+        pathDashAnimateTime={2500}
+        pathTransitionDuration={1000}
+        
+        // Atmosphere
+        atmosphereColor="lightskyblue"
+        atmosphereAltitude={0.2}
       />
 
-      <div className="absolute bottom-6 left-6 bg-black/60 backdrop-blur-sm text-white px-4 py-3 rounded-xl text-sm pointer-events-none border border-white/10 shadow-lg">
-        {startPoint && endPoint 
-          ? "✈️ Flight route displayed" 
-          : "🌍 Drag to rotate • Scroll to zoom"
-        }
-      </div>
-
-      {showResetButton && (
+      {/* Zoom Controls */}
+      <div className="absolute top-6 right-6 z-10 flex flex-col gap-2">
         <button
-          onClick={handleResetView}
-          className="absolute top-6 right-6 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all flex items-center gap-2 border border-white/20"
+          onClick={handleZoomIn}
+          className="w-10 h-10 bg-gray-800/80 hover:bg-gray-700 border border-white/20 rounded-lg flex items-center justify-center text-white font-bold text-xl transition shadow-lg backdrop-blur-sm"
+          title="Zoom In"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 11l3-3m0 0l3 3m-3-3v8m0-13a9 9 0 110 18 9 9 0 010-18z" />
-          </svg>
-          Reset View
+          +
         </button>
-      )}
+        <button
+          onClick={handleZoomOut}
+          className="w-10 h-10 bg-gray-800/80 hover:bg-gray-700 border border-white/20 rounded-lg flex items-center justify-center text-white font-bold text-xl transition shadow-lg backdrop-blur-sm"
+          title="Zoom Out"
+        >
+          −
+        </button>
+      </div>
     </div>
   );
 }
