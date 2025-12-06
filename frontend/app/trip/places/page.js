@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { apiGet } from "@/lib/api";
 import { MapPin, Star, Landmark } from "lucide-react";
 import { PhotoCarousel } from "@/components/PhotoCarousel";
+import ExploreButton from "@/components/ExploreButton";
 
 export default function PlacesPage() {
   const router = useRouter();
@@ -396,13 +397,7 @@ export default function PlacesPage() {
                       )}
 
                       {placeLink && (
-                        <a
-                          href={placeLink}
-                          target="_blank"
-                          className="text-blue-600 underline block mb-2"
-                        >
-                          Open in Google Maps →
-                        </a>
+                        <ExploreButton href={placeLink} label="Directions" />
                       )}
 
                       {directionLink && (
