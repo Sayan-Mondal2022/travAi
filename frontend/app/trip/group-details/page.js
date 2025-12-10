@@ -102,8 +102,42 @@ export default function GroupDetailsStep() {
     return ["solo", "duo", "family"].includes(travelType);
   };
 
+  const validateForm = () => {
+    // Check if children checkbox is checked but count is 0
+    if (formData.has_children && formData.children_count === 0) {
+      alert("Please enter the number of children traveling with you.");
+      return false;
+    }
+
+    // Check if elderly checkbox is checked but count is 0
+    if (formData.has_elderly && formData.elder_count === 0) {
+      alert("Please enter the number of elderly companions traveling with you.");
+      return false;
+    }
+
+    // Check if pets checkbox is checked but count is 0
+    if (formData.has_pets && formData.pets_count === 0) {
+      alert("Please enter the number of pets traveling with you.");
+      return false;
+    }
+
+    // Check if people count is shown and is valid
+    if (shouldShowPeopleCount() && formData.people_count < 1) {
+      alert("Please enter a valid number of people.");
+      return false;
+    }
+
+    return true;
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
+    
+    // Validate form before proceeding
+    if (!validateForm()) {
+      return;
+    }
+
     // Save data
     const allData = {
       ...JSON.parse(localStorage.getItem("tripData")),
@@ -139,161 +173,156 @@ export default function GroupDetailsStep() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 flex items-center justify-center p-4 transition-all duration-500">
-      <div className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-md relative transform transition-all duration-300 hover:shadow-3xl">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center p-4 transition-all duration-500">
+      <div className="bg-white/90 backdrop-blur-xl rounded-2xl shadow-xl p-6 w-full max-w-2xl border border-white/30">
         {/* Back Button */}
         <button
           onClick={handleBack}
-          className="absolute left-6 top-6 p-3 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-2xl transition-all duration-300 cursor-pointer transform hover:scale-110"
+          type="button"
+          className="p-2 rounded-2xl text-[#0077b6] hover:bg-blue-50 transition-all mb-4"
         >
-          <ArrowLeft className="w-5 h-5" />
+          <ArrowLeft className="w-4 h-4" />
         </button>
 
         {/* Header */}
-        <div className="text-center mb-8">
-          <div className="w-20 h-20 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-4 transform transition-all duration-500 hover:scale-110 hover:rotate-3 shadow-lg">
-            <Users className="w-10 h-10 text-white" />
+        <div className="text-center mb-6">
+          <div className="w-14 h-14 rounded-2xl mx-auto mb-3 flex items-center justify-center bg-gradient-to-br from-[#00b4d8] to-[#0077b6] shadow-md">
+            <Users className="w-7 h-7 text-white" />
           </div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent mb-3 transform transition-all duration-300">
-            Group Details
-          </h1>
-          <p className="text-gray-600 transition-all duration-300">
-            Tell us about your travel companions
-          </p>
+          <h1 className="text-2xl font-bold text-[#03045e] mb-2">Group Details</h1>
+          <p className="text-sm text-[#0077b6]">Tell us about your travel companions</p>
 
           {/* Travel Type Badge */}
           {travelType && (
-            <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-100 to-pink-100 rounded-2xl border border-purple-200 transform transition-all duration-300 hover:scale-105">
-              <span className="text-2xl">{getTravelTypeEmoji()}</span>
-              <span className="text-sm font-semibold text-purple-700 capitalize">
+            <div className="mt-3 inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#caf0f8] to-[#90e0ef] rounded-2xl border border-[#00b4d8]">
+              <span className="text-xl">{getTravelTypeEmoji()}</span>
+              <span className="text-sm font-semibold text-[#03045e] capitalize">
                 {travelType} Trip
               </span>
             </div>
           )}
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-4">
           {/* People Count - Conditionally shown */}
           {shouldShowPeopleCount() && (
-            <div className="group">
-              <div className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-2xl p-6 border-2 border-blue-200 transform transition-all duration-500 group-hover:border-blue-400 group-hover:shadow-xl group-hover:scale-[1.02]">
-                <label className="block text-sm font-semibold text-blue-700 mb-4">
-                  <User className="w-5 h-5 inline mr-2 transition-transform duration-300 group-hover:scale-110" />
-                  How many people total?
-                </label>
-                <div className="flex items-center justify-center space-x-4">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        people_count: Math.max(1, prev.people_count - 1),
-                      }))
-                    }
-                    className="w-14 h-14 bg-white rounded-2xl text-2xl font-bold border-2 border-blue-200 hover:border-blue-400 hover:bg-blue-50 hover:scale-110 active:scale-95 transition-all duration-300 shadow-lg hover:shadow-xl"
-                  >
-                    −
-                  </button>
-                  <div className="relative">
-                    <span className="text-5xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent transition-all duration-300">
-                      {formData.people_count}
-                    </span>
-                    <Sparkles className="w-4 h-4 text-yellow-500 absolute -top-2 -right-2 animate-pulse" />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        people_count: prev.people_count + 1,
-                      }))
-                    }
-                    className="w-14 h-14 bg-white rounded-2xl text-2xl font-bold border-2 border-blue-200 hover:border-blue-400 hover:bg-blue-50 hover:scale-110 active:scale-95 transition-all duration-300 shadow-lg hover:shadow-xl"
-                  >
-                    +
-                  </button>
+            <div className="rounded-2xl p-4 bg-white border border-[#90e0ef] shadow-md">
+              <label className="flex items-center gap-2 text-sm font-bold text-[#03045e] mb-4">
+                <User className="w-4 h-4 text-[#00b4d8]" />
+                How many people total?
+              </label>
+              <div className="flex items-center justify-center space-x-4">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      people_count: Math.max(1, prev.people_count - 1),
+                    }))
+                  }
+                  className="w-12 h-12 bg-white rounded-2xl text-xl font-bold border-2 border-[#90e0ef] hover:border-[#00b4d8] hover:bg-[#caf0f8]/30 transition-all shadow-md"
+                >
+                  −
+                </button>
+                <div className="relative">
+                  <span className="text-4xl font-bold text-[#0077b6]">
+                    {formData.people_count}
+                  </span>
                 </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      people_count: prev.people_count + 1,
+                    }))
+                  }
+                  className="w-12 h-12 bg-white rounded-2xl text-xl font-bold border-2 border-[#90e0ef] hover:border-[#00b4d8] hover:bg-[#caf0f8]/30 transition-all shadow-md"
+                >
+                  +
+                </button>
               </div>
             </div>
           )}
 
           {/* Special Considerations - Conditionally shown */}
           {shouldShowChildrenElderly() && (
-            <div className="grid grid-cols-1 gap-4">
-              <div className="group">
-                <label className={`flex items-center p-5 border-2 rounded-2xl cursor-pointer transition-all duration-500 transform hover:scale-[1.02] ${
-                  formData.has_elderly
-                    ? "border-orange-500 bg-gradient-to-r from-orange-50 to-amber-50 shadow-lg scale-105"
-                    : "border-gray-200 hover:border-orange-300 bg-white hover:shadow-lg"
-                }`}>
-                  <input
-                    type="checkbox"
-                    name="has_elderly"
-                    checked={formData.has_elderly}
-                    onChange={handleInputChange}
-                    className="w-5 h-5 text-orange-600 mr-4 transition-all duration-300"
-                  />
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center transition-all duration-300 group-hover:scale-110">
-                      <Heart className="w-5 h-5 text-orange-600" />
-                    </div>
-                    <div>
-                      <span className="block font-semibold text-gray-900">Elderly Companions</span>
-                      <span className="text-sm text-gray-500">65+ years old</span>
-                    </div>
-                  </div>
-                </label>
-              </div>
+            <div className="rounded-2xl p-4 bg-white border border-[#90e0ef] shadow-md space-y-3">
+              <label className="flex items-center gap-2 text-sm font-bold text-[#03045e] mb-2">
+                <Heart className="w-4 h-4 text-[#00b4d8]" />
+                Special Considerations
+              </label>
 
-              <div className="group">
-                <label className={`flex items-center p-5 border-2 rounded-2xl cursor-pointer transition-all duration-500 transform hover:scale-[1.02] ${
-                  formData.has_children
-                    ? "border-yellow-500 bg-gradient-to-r from-yellow-50 to-amber-50 shadow-lg scale-105"
-                    : "border-gray-200 hover:border-yellow-300 bg-white hover:shadow-lg"
-                }`}>
-                  <input
-                    type="checkbox"
-                    name="has_children"
-                    checked={formData.has_children}
-                    onChange={handleInputChange}
-                    className="w-5 h-5 text-yellow-600 mr-4 transition-all duration-300"
-                  />
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-yellow-100 rounded-xl flex items-center justify-center transition-all duration-300 group-hover:scale-110">
-                      <Baby className="w-5 h-5 text-yellow-600" />
-                    </div>
-                    <div>
-                      <span className="block font-semibold text-gray-900">Children</span>
-                      <span className="text-sm text-gray-500">Under 12 years</span>
-                    </div>
+              <label className={`flex items-center p-3 border-2 rounded-2xl cursor-pointer transition-all ${
+                formData.has_elderly
+                  ? "border-[#0077b6] bg-[#caf0f8]/40 shadow-md"
+                  : "border-[#90e0ef] bg-white hover:bg-[#eefaff]"
+              }`}>
+                <input
+                  type="checkbox"
+                  name="has_elderly"
+                  checked={formData.has_elderly}
+                  onChange={handleInputChange}
+                  className="w-4 h-4 text-[#0077b6] mr-3"
+                />
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 bg-[#90e0ef]/50 rounded-2xl flex items-center justify-center">
+                    <Heart className="w-4 h-4 text-[#0077b6]" />
                   </div>
-                </label>
-              </div>
+                  <div>
+                    <span className="block text-sm font-semibold text-[#03045e]">Elderly Companions</span>
+                    <span className="text-xs text-[#0077b6]">65+ years old</span>
+                  </div>
+                </div>
+              </label>
+
+              <label className={`flex items-center p-3 border-2 rounded-2xl cursor-pointer transition-all ${
+                formData.has_children
+                  ? "border-[#0077b6] bg-[#caf0f8]/40 shadow-md"
+                  : "border-[#90e0ef] bg-white hover:bg-[#eefaff]"
+              }`}>
+                <input
+                  type="checkbox"
+                  name="has_children"
+                  checked={formData.has_children}
+                  onChange={handleInputChange}
+                  className="w-4 h-4 text-[#0077b6] mr-3"
+                />
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 bg-[#90e0ef]/50 rounded-2xl flex items-center justify-center">
+                    <Baby className="w-4 h-4 text-[#0077b6]" />
+                  </div>
+                  <div>
+                    <span className="block text-sm font-semibold text-[#03045e]">Children</span>
+                    <span className="text-xs text-[#0077b6]">Under 12 years</span>
+                  </div>
+                </div>
+              </label>
             </div>
           )}
 
           {/* Pets - Conditionally shown */}
           {shouldShowPets() && (
-            <div className="group">
-              <label className={`flex items-center p-5 border-2 rounded-2xl cursor-pointer transition-all duration-500 transform hover:scale-[1.02] ${
+            <div className="rounded-2xl p-4 bg-white border-[#90e0ef] shadow-md">
+              <label className={`flex items-center p-3 rounded-2xl cursor-pointer transition-all ${
                 formData.has_pets
-                  ? "border-green-500 bg-gradient-to-r from-green-50 to-emerald-50 shadow-lg scale-105"
-                  : "border-gray-200 hover:border-green-300 bg-white hover:shadow-lg"
+                  ? "border-[#0077b6] bg-[#caf0f8]/40 shadow-md"
+                  : "border-[#90e0ef] bg-white hover:bg-[#eefaff]"
               }`}>
                 <input
                   type="checkbox"
                   name="has_pets"
                   checked={formData.has_pets}
                   onChange={handleInputChange}
-                  className="w-5 h-5 text-green-600 mr-4 transition-all duration-300"
+                  className="w-4 h-4 text-[#0077b6] mr-3"
                 />
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center transition-all duration-300 group-hover:scale-110">
-                    <Dog className="w-5 h-5 text-green-600" />
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 bg-[#90e0ef]/50 rounded-2xl flex items-center justify-center">
+                    <Dog className="w-4 h-4 text-[#0077b6]" />
                   </div>
                   <div>
-                    <span className="block font-semibold text-gray-900">Pets</span>
-                    <span className="text-sm text-gray-500">Bringing furry friends</span>
+                    <span className="block text-sm font-semibold text-[#03045e]">Pets</span>
+                    <span className="text-xs text-[#0077b6]">Bringing furry friends</span>
                   </div>
                 </div>
               </label>
@@ -302,87 +331,74 @@ export default function GroupDetailsStep() {
 
           {/* Conditional Fields for Children */}
           {shouldShowChildrenElderly() && formData.has_children && (
-            <div className="group">
-              <div className="bg-gradient-to-r from-yellow-50 to-amber-50 rounded-2xl p-6 border-2 border-yellow-300 transform transition-all duration-500 group-hover:border-yellow-400 group-hover:shadow-lg group-hover:scale-[1.02]">
-                <label className="block text-sm font-semibold text-yellow-700 mb-4">
-                  <Baby className="w-5 h-5 inline mr-2 transition-transform duration-300 group-hover:scale-110" />
-                  How many children?
-                </label>
-                <input
-                  type="number"
-                  name="children_count"
-                  value={formData.children_count}
-                  onChange={handleInputChange}
-                  min="0"
-                  max="10"
-                  className="w-full px-4 py-3 text-lg font-semibold text-yellow-700 border-2 border-yellow-300 rounded-2xl focus:border-yellow-500 focus:ring-4 focus:ring-yellow-100 outline-none transition-all duration-300 bg-white/80 backdrop-blur-sm hover:bg-white hover:border-yellow-400"
-                  placeholder="0"
-                />
-              </div>
+            <div className="rounded-2xl p-4 bg-white border border-[#90e0ef] shadow-md">
+              <label className="flex items-center gap-2 text-sm font-bold text-[#03045e] mb-3">
+                <Baby className="w-4 h-4 text-[#00b4d8]" />
+                How many children?
+              </label>
+              <input
+                type="number"
+                name="children_count"
+                value={formData.children_count}
+                onChange={handleInputChange}
+                min="0"
+                max="10"
+                className="w-full px-4 py-2 text-base font-semibold text-[#03045e] border-2 border-[#90e0ef] rounded-2xl focus:border-[#00b4d8] focus:ring-4 focus:ring-[#caf0f8]/50 outline-none transition-all bg-white"
+                placeholder="0"
+              />
             </div>
           )}
 
           {/* Conditional Fields for Elderly */}
           {shouldShowChildrenElderly() && formData.has_elderly && (
-            <div className="group">
-              <div className="bg-gradient-to-r from-orange-50 to-red-50 rounded-2xl p-6 border-2 border-orange-300 transform transition-all duration-500 group-hover:border-orange-400 group-hover:shadow-lg group-hover:scale-[1.02]">
-                <label className="block text-sm font-semibold text-orange-700 mb-4">
-                  <Heart className="w-5 h-5 inline mr-2 transition-transform duration-300 group-hover:scale-110" />
-                  How many elders?
-                </label>
-                <input
-                  type="number"
-                  name="elder_count"
-                  value={formData.elder_count}
-                  onChange={handleInputChange}
-                  min="0"
-                  max="10"
-                  className="w-full px-4 py-3 text-lg font-semibold text-orange-700 border-2 border-orange-300 rounded-2xl focus:border-orange-500 focus:ring-4 focus:ring-orange-100 outline-none transition-all duration-300 bg-white/80 backdrop-blur-sm hover:bg-white hover:border-orange-400"
-                  placeholder="0"
-                />
-              </div>
+            <div className="rounded-2xl p-4 bg-white border border-[#90e0ef] shadow-md">
+              <label className="flex items-center gap-2 text-sm font-bold text-[#03045e] mb-3">
+                <Heart className="w-4 h-4 text-[#00b4d8]" />
+                How many elders?
+              </label>
+              <input
+                type="number"
+                name="elder_count"
+                value={formData.elder_count}
+                onChange={handleInputChange}
+                min="0"
+                max="10"
+                className="w-full px-4 py-2 text-base font-semibold text-[#03045e] border-2 border-[#90e0ef] rounded-2xl focus:border-[#00b4d8] focus:ring-4 focus:ring-[#caf0f8]/50 outline-none transition-all bg-white"
+                placeholder="0"
+              />
             </div>
           )}
 
           {/* Conditional Fields for Pets */}
           {shouldShowPets() && formData.has_pets && (
-            <div className="group">
-              <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl p-6 border-2 border-green-300 transform transition-all duration-500 group-hover:border-green-400 group-hover:shadow-lg group-hover:scale-[1.02]">
-                <label className="block text-sm font-semibold text-green-700 mb-4">
-                  <Dog className="w-5 h-5 inline mr-2 transition-transform duration-300 group-hover:scale-110" />
-                  How many pets?
-                </label>
-                <input
-                  type="number"
-                  name="pets_count"
-                  value={formData.pets_count}
-                  onChange={handleInputChange}
-                  min="0"
-                  max="5"
-                  className="w-full px-4 py-3 text-lg font-semibold text-green-700 border-2 border-green-300 rounded-2xl focus:border-green-500 focus:ring-4 focus:ring-green-100 outline-none transition-all duration-300 bg-white/80 backdrop-blur-sm hover:bg-white hover:border-green-400"
-                  placeholder="0"
-                />
-              </div>
+            <div className="rounded-2xl p-4 bg-white border border-[#90e0ef] shadow-md">
+              <label className="flex items-center gap-2 text-sm font-bold text-[#03045e] mb-3">
+                <Dog className="w-4 h-4 text-[#00b4d8]" />
+                How many pets?
+              </label>
+              <input
+                type="number"
+                name="pets_count"
+                value={formData.pets_count}
+                onChange={handleInputChange}
+                min="0"
+                max="5"
+                className="w-full px-4 py-2 text-base font-semibold text-[#03045e] border-2 border-[#90e0ef] rounded-2xl focus:border-[#00b4d8] focus:ring-4 focus:ring-[#caf0f8]/50 outline-none transition-all bg-white"
+                placeholder="0"
+              />
             </div>
           )}
 
           {/* Navigation */}
-          <div className="pt-6 transform transition-all duration-300 hover:scale-[1.01]">
+          <div className="pt-2">
             <button
               type="submit"
-              className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-4 px-6 rounded-2xl hover:from-purple-700 hover:to-pink-700 hover:scale-105 active:scale-95 transition-all duration-300 font-bold shadow-2xl cursor-pointer group"
+              className="w-full py-3 rounded-2xl text-white bg-gradient-to-r from-[#00b4d8] to-[#03045e] text-base font-bold shadow-md hover:opacity-90 transition-all"
             >
-              <span className="flex items-center justify-center gap-3">
-                Continue to Preferences 
-                <Sparkles className="w-5 h-5 transform transition-transform duration-300 group-hover:scale-110 group-hover:rotate-12" />
-              </span>
+              Continue to Preferences
             </button>
           </div>
         </form>
-
-        {/* Decorative Elements */}
-        <div className="absolute -top-10 -right-10 w-20 h-20 bg-purple-200 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-pulse"></div>
-        <div className="absolute -bottom-8 -left-8 w-24 h-24 bg-pink-200 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-pulse"></div>
       </div>
     </div>
   );

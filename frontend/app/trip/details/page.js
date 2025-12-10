@@ -179,8 +179,8 @@ export default function DetailsStep() {
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    if (!formData.start_date && !formData.end_date && !formData.travel_type) {
-      alert("Please select both dates and travel type");
+    if (!formData.start_date || !formData.end_date || !formData.travel_type) {
+      alert("Please select both travel dates and travel type before continuing.");
       return;
     }
 
@@ -194,6 +194,10 @@ export default function DetailsStep() {
     router.push("/trip/group-details");
   };
 
+  const handleTravelTypeClick = (typeId) => {
+    setFormData((prev) => ({ ...prev, travel_type: typeId }));
+  };
+
   const calendarDays = generateCalendar();
   const duration = getDurationDays();
 
@@ -203,8 +207,9 @@ export default function DetailsStep() {
         {/* Header */}
         <div className="text-center mb-4 relative">
           <button
+            type="button"
             onClick={() => router.back()}
-            className="absolute left-0 top-0 p-2 rounded-2xl text-[#0077b6]"
+            className="absolute left-0 top-0 p-2 rounded-2xl text-[#0077b6] hover:bg-blue-50 transition-all"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
@@ -250,7 +255,7 @@ export default function DetailsStep() {
 
               {/* Duration */}
               {duration > 0 && (
-                <div className="text-center mb-3 p-2 rounded-2xl bg-gradient-to-r from-[#00b4d8] to-[#03045e] text-white text-sm font-bold shadow-md">
+                <div className="text-center mb-3 p-2 h-10 rounded-2xl bg-gradient-to-r from-[#00b4d8] to-[#03045e] text-white text-sm font-bold shadow-md">
                   {duration} Days Trip
                 </div>
               )}
@@ -259,7 +264,7 @@ export default function DetailsStep() {
               <div className="rounded-2xl bg-white p-2 shadow-inner">
                 <div className="grid grid-cols-7 gap-1 mb-1">
                   {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
-                    <div key={d} className="text-center text-[10px] font-bold text-[#0077b6]">
+                    <div key={d} className="text-center text-[14px] font-bold text-[#0077b6]">
                       {d}
                     </div>
                   ))}
@@ -274,11 +279,12 @@ export default function DetailsStep() {
                     return (
                       <button
                         key={i}
+                        type="button"
                         disabled={day.isPast}
                         onClick={() => handleDateSelect(day)}
-                        className={`h-6 text-[11px] rounded-lg transition ${
+                        className={`h-10 text-[11px] rounded-2xl transition hover:cursor-pointer ${
                           day.isPast
-                            ? "text-gray-300 bg-gray-50"
+                            ? "text-gray-300 bg-gray-50 cursor-not-allowed"
                             : isSel
                             ? "bg-[#0077b6] text-white"
                             : inRange
@@ -303,12 +309,11 @@ export default function DetailsStep() {
 
               <div className="grid grid-cols-2 gap-2">
                 {TRAVEL_TYPES.map((t) => (
-                  <div
+                  <button
                     key={t.id}
-                    onClick={() =>
-                      setFormData((prev) => ({ ...prev, travel_type: t.id }))
-                    }
-                    className={`p-2 rounded-2xl cursor-pointer border text-center transition ${
+                    type="button"
+                    onClick={() => handleTravelTypeClick(t.id)}
+                    className={`p-2 rounded-2xl border text-center transition hover:cursor-pointer ${
                       formData.travel_type === t.id
                         ? "border-[#0077b6] bg-[#caf0f8]/40 shadow-md"
                         : "border-[#90e0ef] bg-white hover:bg-[#eefaff]"
@@ -319,7 +324,7 @@ export default function DetailsStep() {
                       {t.label}
                     </div>
                     <div className="text-[10px] text-[#0077b6]">{t.description}</div>
-                  </div>
+                  </button>
                 ))}
               </div>
             </div>
@@ -328,8 +333,7 @@ export default function DetailsStep() {
           {/* Submit Button */}
           <button
             type="submit"
-            disabled={!formData.start_date || !formData.end_date || !formData.travel_type}
-            className="w-full py-3 rounded-2xl text-white bg-gradient-to-r from-[#00b4d8] to-[#03045e] text-base font-bold shadow-md hover:opacity-90 disabled:opacity-40"
+            className="w-full py-3 rounded-2xl text-white bg-gradient-to-r from-[#00b4d8] to-[#03045e] text-base font-bold shadow-md hover:opacity-90 transition-all hover:cursor-pointer"
           >
             Continue to Group Details
           </button>

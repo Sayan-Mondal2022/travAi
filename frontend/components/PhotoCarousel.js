@@ -16,7 +16,7 @@ export function PhotoCarousel({ photos }) {
 
   if (!photos || photos.length === 0) {
     return (
-      <div className="w-full h-40 bg-gray-200 rounded-lg flex items-center justify-center text-gray-500">
+      <div className="w-full h-40 bg-gray-200 rounded-2xl flex items-center justify-center text-gray-500">
         No Photos
       </div>
     );
@@ -31,7 +31,7 @@ export function PhotoCarousel({ photos }) {
       <img
         src={convert(photos[index])}
         alt="photo"
-        className="w-full h-40 object-cover rounded-lg transition-all duration-700"
+        className="w-full h-40 object-cover rounded-2xl transition-all duration-700"
       />
     </div>
   );

@@ -152,7 +152,7 @@ export default function DestinationStep() {
                 value={formData.from_location}
                 onChange={handleInputChange}
                 placeholder="Where are you now?"
-                className="w-full px-4 py-3 border-2 border-blue-100 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none"
+                className="w-full px-4 py-3 border-2 border-blue-100 rounded-2xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none"
               />
             </div>
 
@@ -175,7 +175,7 @@ export default function DestinationStep() {
                 value={formData.to_location}
                 onChange={handleInputChange}
                 placeholder="Where is your dream?"
-                className="w-full px-4 py-3 border-2 border-purple-100 rounded-xl focus:border-purple-500 focus:ring-4 focus:ring-purple-100 outline-none"
+                className="w-full px-4 py-3 border-2 border-purple-100 rounded-2xl focus:border-purple-500 focus:ring-4 focus:ring-purple-100 outline-none"
               />
             </div>
 
@@ -183,7 +183,7 @@ export default function DestinationStep() {
             <button
               type="submit"
               disabled={!formData.from_location || !formData.to_location}
-              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-4 rounded-xl font-bold shadow-lg hover:scale-[1.02] transition-all disabled:opacity-50 disabled:scale-100"
+              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-4 rounded-2xl font-bold shadow-lg hover:scale-[1.02] transition-all disabled:opacity-50 disabled:scale-100 hover:cursor-pointer"
             >
               Start Planning
             </button>
@@ -201,7 +201,7 @@ export default function DestinationStep() {
                   onClick={() =>
                     setFormData((prev) => ({ ...prev, to_location: d.name }))
                   }
-                  className="px-3 py-2 bg-gray-50 hover:bg-blue-50 border rounded-lg text-sm"
+                  className="px-3 py-2 bg-gray-50 hover:bg-blue-50 rounded-2xl text-sm hover:cursor-pointer shadow"
                 >
                   {d.emoji} {d.name}
                 </button>

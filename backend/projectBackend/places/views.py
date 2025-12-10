@@ -353,7 +353,7 @@ def get_preference_based_places(request, destination: str, travel_preferences: s
     """
     MAIN API:
     - Uses TextSearch with preference-based query generation.
-    - Randomly selects ONE query per category (tourist / restaurant / lodging).
+    - Makes MULTIPLE queries per category to fetch more places (up to 40+).
     - Groups results by preference (reference_places).
     - Also calls secondary API logic (NearbySearch) to get recommended_places.
     - Caches full combined response in trip_places_cache keyed by cache_key.
@@ -392,49 +392,71 @@ def get_preference_based_places(request, destination: str, travel_preferences: s
         restaurants: List[Dict[str, Any]] = []
         lodging: List[Dict[str, Any]] = []
 
-        # ===== TOURIST ATTRACTIONS (Random Query Selection) =====
+        # ===== TOURIST ATTRACTIONS (Multiple Queries to get 40+ places) =====
         if tourist_queries:
-            chosen = random.choice(tourist_queries)
-            chosen_pref = chosen["preference"]
-            chosen_query = chosen["query"]
+            # Take up to 3 queries to get more variety
+            queries_to_use = random.sample(tourist_queries, min(3, len(tourist_queries)))
+            
+            for query_obj in queries_to_use:
+                chosen_pref = query_obj["preference"]
+                chosen_query = query_obj["query"]
 
-            raw = fetch_places_data(GOOGLE_API_KEY, f"{chosen_query} in {destination}")
-            if raw:
-                places = filter_textSearch_place_data(raw)
-                for p in places:
-                    p["preference_tag"] = chosen_pref
-                tourist_attractions.extend(places)
+                raw = fetch_places_data(GOOGLE_API_KEY, f"{chosen_query} in {destination}")
+                if raw:
+                    places = filter_textSearch_place_data(raw)
+                    for p in places:
+                        p["preference_tag"] = chosen_pref
+                    tourist_attractions.extend(places)
+                    print(f"Tourist query '{chosen_query}' returned {len(places)} places")
 
-        # ===== RESTAURANTS (Random Query Selection) =====
+        # ===== RESTAURANTS (Multiple Queries) =====
         if restaurant_queries:
-            chosen = random.choice(restaurant_queries)
-            chosen_pref = chosen["preference"]
-            chosen_query = chosen["query"]
+            # Take up to 2 queries for restaurants
+            queries_to_use = random.sample(restaurant_queries, min(2, len(restaurant_queries)))
+            
+            for query_obj in queries_to_use:
+                chosen_pref = query_obj["preference"]
+                chosen_query = query_obj["query"]
 
-            raw = fetch_places_data(GOOGLE_API_KEY, f"{chosen_query} in {destination}")
-            if raw:
-                places = filter_textSearch_place_data(raw)
-                for p in places:
-                    p["preference_tag"] = chosen_pref
-                restaurants.extend(places)
+                raw = fetch_places_data(GOOGLE_API_KEY, f"{chosen_query} in {destination}")
+                if raw:
+                    places = filter_textSearch_place_data(raw)
+                    for p in places:
+                        p["preference_tag"] = chosen_pref
+                    restaurants.extend(places)
+                    print(f"Restaurant query '{chosen_query}' returned {len(places)} places")
 
-        # ===== LODGING (Random Query Selection) =====
+        # ===== LODGING (Multiple Queries) =====
         if lodging_queries:
-            chosen = random.choice(lodging_queries)
-            chosen_pref = chosen["preference"]
-            chosen_query = chosen["query"]
+            # Take up to 2 queries for lodging
+            queries_to_use = random.sample(lodging_queries, min(2, len(lodging_queries)))
+            
+            for query_obj in queries_to_use:
+                chosen_pref = query_obj["preference"]
+                chosen_query = query_obj["query"]
 
-            raw = fetch_places_data(GOOGLE_API_KEY, f"{chosen_query} in {destination}")
-            if raw:
-                places = filter_textSearch_place_data(raw)
-                for p in places:
-                    p["preference_tag"] = chosen_pref
-                lodging.extend(places)
+                raw = fetch_places_data(GOOGLE_API_KEY, f"{chosen_query} in {destination}")
+                if raw:
+                    places = filter_textSearch_place_data(raw)
+                    for p in places:
+                        p["preference_tag"] = chosen_pref
+                    lodging.extend(places)
+                    print(f"Lodging query '{chosen_query}' returned {len(places)} places")
 
-        # Remove duplicates using global sets
-        def remove_duplicates(data, limit=20, container_set=None):
+        # Remove duplicates using global sets - NO LIMIT
+        def remove_duplicates(data, limit=None, container_set=None):
+            """
+            Remove duplicate places based on their IDs.
+            
+            Args:
+                data: List of place dictionaries
+                limit: Optional maximum number of places to return (None = no limit)
+                container_set: Set to track unique place IDs across calls
+            
+            Returns:
+                List of unique places
+            """
             results = []
-            count = 0
             if container_set is None:
                 container_set = set()
 
@@ -446,16 +468,19 @@ def get_preference_based_places(request, destination: str, travel_preferences: s
                 if pid not in container_set:
                     container_set.add(pid)
                     results.append(place)
-                    count += 1
-
-                if count >= limit:
-                    break
+                    
+                    # Only break if limit is specified and reached
+                    if limit and len(results) >= limit:
+                        break
 
             return results
 
-        tourist_attractions = remove_duplicates(tourist_attractions, limit=30, container_set=PREF_TOURIST_SET)
-        restaurants = remove_duplicates(restaurants, limit=30, container_set=PREF_RESTAURANT_SET)
-        lodging = remove_duplicates(lodging, limit=30, container_set=PREF_LODGING_SET)
+        # Remove duplicates WITHOUT limits to get all available places
+        tourist_attractions = remove_duplicates(tourist_attractions, limit=None, container_set=PREF_TOURIST_SET)
+        restaurants = remove_duplicates(restaurants, limit=None, container_set=PREF_RESTAURANT_SET)
+        lodging = remove_duplicates(lodging, limit=None, container_set=PREF_LODGING_SET)
+
+        print(f"After deduplication: {len(tourist_attractions)} tourist, {len(restaurants)} restaurants, {len(lodging)} lodging")
 
         # Build REFERENCE places (grouped by preference)
         reference_places = {
@@ -500,7 +525,7 @@ def get_preference_based_places(request, destination: str, travel_preferences: s
         save_trip_response(cache_key, response_data)
 
         print(
-            f"Fetched {len(tourist_attractions)} attractions, "
+            f"Final counts - Fetched {len(tourist_attractions)} attractions, "
             f"{len(restaurants)} restaurants, {len(lodging)} lodging"
         )
 
@@ -573,7 +598,6 @@ def get_preference_based_places(request, destination: str, travel_preferences: s
 
             save_trip_response(cache_key, response_data)
             return {"source": "fallback_v1", **response_data}
-
 
 # ======================================================================
 # TRIP-BASED REUSE ENDPOINT
