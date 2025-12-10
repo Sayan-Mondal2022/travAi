@@ -393,7 +393,7 @@ export default function GroupDetailsStep() {
           <div className="pt-2">
             <button
               type="submit"
-              className="w-full py-3 rounded-2xl text-white bg-gradient-to-r from-[#00b4d8] to-[#03045e] text-base font-bold shadow-md hover:opacity-90 transition-all"
+              className="w-full py-3 rounded-2xl text-white bg-gradient-to-r from-[#00b4d8] to-[#03045e] text-base font-bold shadow-md hover:opacity-90 transition-all hover:cursor-pointer"
             >
               Continue to Preferences
             </button>

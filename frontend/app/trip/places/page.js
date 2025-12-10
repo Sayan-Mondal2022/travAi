@@ -34,6 +34,10 @@ export default function PlacesPage() {
   const ITEMS_PER_PAGE = 20;
   const [currentPage, setCurrentPage] = useState(1);
 
+  // Transition states
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [isModeTransitioning, setIsModeTransitioning] = useState(false);
+
   /* -------------------------------------------------------
      LOAD TRIP DATA
   -------------------------------------------------------- */
@@ -172,6 +176,30 @@ export default function PlacesPage() {
   };
 
   /* -------------------------------------------------------
+     HANDLE TAB CHANGE WITH TRANSITION
+  -------------------------------------------------------- */
+  const handleTabChange = (tab) => {
+    setIsTransitioning(true);
+    setTimeout(() => {
+      setActiveTab(tab);
+      setCurrentPage(1);
+      setIsTransitioning(false);
+    }, 150);
+  };
+
+  /* -------------------------------------------------------
+     HANDLE MODE CHANGE WITH TRANSITION
+  -------------------------------------------------------- */
+  const handleModeChange = (mode) => {
+    setIsModeTransitioning(true);
+    setTimeout(() => {
+      setActiveMode(mode);
+      setCurrentPage(1);
+      setIsModeTransitioning(false);
+    }, 150);
+  };
+
+  /* -------------------------------------------------------
      GENERATE ITINERARY
   -------------------------------------------------------- */
   const handleGenerateItinerary = () => {
@@ -208,6 +236,7 @@ export default function PlacesPage() {
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex flex-col items-center justify-center gap-4">
         <p className="text-red-500 text-lg">{error}</p>
         <button
+          type="button"
           onClick={() => router.push("/trip")}
           className="px-4 py-2 bg-gradient-to-r from-[#00b4d8] to-[#0077b6] text-white rounded-2xl shadow-md hover:opacity-90 transition-all cursor-pointer"
         >
@@ -246,10 +275,7 @@ export default function PlacesPage() {
                 ? "bg-gradient-to-r from-[#00b4d8] to-[#0077b6] text-white"
                 : "bg-white/80 text-[#0077b6] hover:bg-white"
             }`}
-            onClick={() => {
-              setActiveMode("reference");
-              setCurrentPage(1);
-            }}
+            onClick={() => handleModeChange("reference")}
           >
             Reference
           </button>
@@ -261,10 +287,7 @@ export default function PlacesPage() {
                 ? "bg-gradient-to-r from-[#00b4d8] to-[#0077b6] text-white"
                 : "bg-white/80 text-[#0077b6] hover:bg-white"
             }`}
-            onClick={() => {
-              setActiveMode("recommended");
-              setCurrentPage(1);
-            }}
+            onClick={() => handleModeChange("recommended")}
           >
             Recommended
           </button>
@@ -285,10 +308,7 @@ export default function PlacesPage() {
           <button
             type="button"
             key={tab}
-            onClick={() => {
-              setActiveTab(tab);
-              setCurrentPage(1);
-            }}
+            onClick={() => handleTabChange(tab)}
             className={`whitespace-nowrap transition-all pb-2 cursor-pointer ${
               activeTab === tab
                 ? "text-[#0077b6] border-b-2 border-[#0077b6]"
@@ -307,83 +327,99 @@ export default function PlacesPage() {
         Showing {paginated.length} of {list.length} places
       </p>
 
-      {/* GRID OF PLACES */}
-      {paginated.length === 0 ? (
-        <div className="text-center py-12 text-gray-500">
-          No places found in this category.
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {paginated.map((place) => {
-            const id = place.id || place.place_id;
-            const isSelected = selectedPlaces.some(
-              (p) => (p.id || p.place_id) === id
-            );
+      {/* GRID OF PLACES WITH FADE TRANSITION */}
+      <div
+        className={`transition-opacity duration-300 ${
+          isTransitioning || isModeTransitioning ? "opacity-0" : "opacity-100"
+        }`}
+      >
+        {paginated.length === 0 ? (
+          <div className="text-center py-12 text-gray-500">
+            No places found in this category.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {paginated.map((place) => {
+              const id = place.id || place.place_id;
+              const isSelected = selectedPlaces.some(
+                (p) => (p.id || p.place_id) === id
+              );
 
-            const photos = place.photos;
-            const address = place.formattedAddress;
-            const rating = place.rating;
+              const photos = place.photos;
+              const address = place.formattedAddress;
+              const rating = place.rating;
 
-            return (
-              <div
-                key={id}
-                className="flex flex-col rounded-[30px] bg-[#e0e0e0] shadow-[15px_15px_30px_#bebebe,-15px_-15px_30px_#ffffff] hover:shadow-[20px_20px_40px_#bebebe,-20px_-20px_40px_#ffffff] transition-all h-full"
-              >
-                {/* CARD CONTENT */}
-                <div className="p-4 flex flex-col flex-grow">
-                  <PhotoCarousel photos={photos} />
+              return (
+                <div
+                  key={id}
+                  className="flex flex-col rounded-[30px] bg-[#e0e0e0] shadow-[15px_15px_30px_#bebebe,-15px_-15px_30px_#ffffff] hover:shadow-[20px_20px_40px_#bebebe,-20px_-20px_40px_#ffffff] transition-all h-full"
+                >
+                  {/* CARD CONTENT */}
+                  <div className="p-4 flex flex-col flex-grow">
+                    <PhotoCarousel photos={photos} />
 
-                  <h3 className="text-lg font-bold mt-3 mb-2 line-clamp-2 min-h-[3.5rem] text-[#03045e]">
-                    {place.displayName}
-                  </h3>
+                    <h3 className="text-lg font-bold mt-3 mb-2 line-clamp-2 min-h-[3.5rem] text-[#03045e]">
+                      {place.displayName}
+                    </h3>
 
-                  <div className="flex gap-2 text-sm text-[#0077b6] mb-2 items-start flex-grow">
-                    <MapPin className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                    <span className="line-clamp-2">{address}</span>
-                  </div>
-
-                  {rating && (
-                    <div className="flex items-center gap-2 mb-3">
-                      {stars(rating)}
-                      <span className="text-sm text-[#0077b6] font-semibold">
-                        {rating.toFixed(1)}
-                      </span>
+                    <div className="flex gap-2 text-sm text-[#0077b6] mb-2 items-start flex-grow">
+                      <MapPin className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                      <span className="line-clamp-2">{address}</span>
                     </div>
-                  )}
 
-                  {/* ACTION BUTTONS */}
-                  <div className="flex gap-2 mt-auto">
-                    <button
-                      type="button"
-                      onClick={() => toggleSelect(place)}
-                      className={`flex-1 px-3 py-2 rounded-2xl text-sm font-semibold transition-all shadow-md cursor-pointer ${
-                        isSelected
-                          ? "bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700"
-                          : "bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700"
-                      }`}
-                    >
-                      {isSelected ? "Remove" : "Add"}
-                    </button>
+                    {rating && (
+                      <div className="flex items-center gap-2 mb-3">
+                        {stars(rating)}
+                        <span className="text-sm text-[#0077b6] font-semibold">
+                          {rating.toFixed(1)}
+                        </span>
+                      </div>
+                    )}
 
-                    <button
-                      type="button"
-                      onClick={() => setShowDetailsFor(place)}
-                      className="flex-1 px-3 py-2 rounded-2xl text-sm font-semibold bg-gradient-to-r from-[#00b4d8] to-[#0077b6] text-white hover:from-[#0077b6] hover:to-[#03045e] transition-all shadow-md cursor-pointer"
-                    >
-                      Details
-                    </button>
+                    {/* ACTION BUTTONS */}
+                    <div className="flex gap-2 mt-auto">
+                      <button
+                        type="button"
+                        onClick={() => toggleSelect(place)}
+                        className={`flex-1 px-3 py-2 rounded-2xl text-sm font-semibold transition-all shadow-md cursor-pointer ${
+                          isSelected
+                            ? "bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700"
+                            : "bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700"
+                        }`}
+                      >
+                        {isSelected ? "Remove" : "Add"}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setShowDetailsFor(place)}
+                        className="flex-1 px-3 py-2 rounded-2xl text-sm font-semibold bg-gradient-to-r from-[#00b4d8] to-[#0077b6] text-white hover:from-[#0077b6] hover:to-[#03045e] transition-all shadow-md cursor-pointer"
+                      >
+                        Details
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+              );
+            })}
+          </div>
+        )}
+      </div>
 
-      {/* DETAILS MODAL */}
+      {/* DETAILS MODAL WITH SMOOTH TRANSITION */}
       {showDetailsFor && (
-        <div className="fixed inset-0 z-[9999] overflow-y-auto bg-gradient-to-br from-blue-900/60 via-blue-800/50 to-blue-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto border border-white/30">
+        <div
+          className={`fixed inset-0 z-[9999] overflow-y-auto bg-gradient-to-br from-blue-900/60 via-blue-800/50 to-blue-900/60 backdrop-blur-sm flex items-center justify-center p-4 transition-opacity duration-300 ${
+            showDetailsFor ? "opacity-100" : "opacity-0"
+          }`}
+          onClick={() => setShowDetailsFor(null)}
+        >
+          <div
+            className={`bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto border border-white/30 transition-all duration-300 transform ${
+              showDetailsFor ? "scale-100 opacity-100" : "scale-95 opacity-0"
+            }`}
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="sticky top-0 bg-gradient-to-r from-[#00b4d8]/10 to-[#0077b6]/10 backdrop-blur-xl border-b border-blue-200/30 p-4 flex items-center justify-between">
               <h2 className="text-2xl font-bold text-[#03045e]">
                 {showDetailsFor.displayName}
