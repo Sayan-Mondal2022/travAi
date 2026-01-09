@@ -41,40 +41,78 @@ export default function ItineraryPage() {
   const [error, setError] = useState(null);
 
   // ======================================================
-  // FETCH ITINERARY FROM BACKEND
+  // ✅ IMPROVED: FETCH ITINERARY WITH BETTER DATA HANDLING
   // ======================================================
   useEffect(() => {
     const fetchItinerary = async () => {
       try {
-        const savedTrip = JSON.parse(localStorage.getItem("currentTrip") || "{}");
-        const savedMode = localStorage.getItem("itineraryMode") || "ai";
-        const selectedPlaces = JSON.parse(localStorage.getItem("selectedPlaces") || "[]");
+        // Try to load trip data from multiple sources
+        let savedTrip = null;
+        
+        // Priority 1: currentTrip
+        const currentTripStr = localStorage.getItem("currentTrip");
+        if (currentTripStr) {
+          savedTrip = JSON.parse(currentTripStr);
+          console.log("✅ Loaded from currentTrip:", savedTrip);
+        }
+        
+        // Priority 2: tripData
+        if (!savedTrip || !savedTrip.to_location) {
+          const tripDataStr = localStorage.getItem("tripData");
+          if (tripDataStr) {
+            savedTrip = JSON.parse(tripDataStr);
+            // Save as currentTrip for future use
+            localStorage.setItem("currentTrip", tripDataStr);
+            console.log("✅ Loaded from tripData and saved as currentTrip:", savedTrip);
+          }
+        }
 
-        if (!savedTrip.to_location) {
+        // If still no trip data, throw error
+        if (!savedTrip || !savedTrip.to_location) {
           throw new Error("No trip data found. Please create a trip first.");
         }
+
+        const savedMode = localStorage.getItem("itineraryMode") || "ai";
+        const selectedPlacesStr = localStorage.getItem("selected_places") || "[]";
+        const selectedPlaces = JSON.parse(selectedPlacesStr);
+
+        console.log("📍 Trip Data:", savedTrip);
+        console.log("🎯 Mode:", savedMode);
+        console.log("📦 Selected Places:", selectedPlaces.length);
 
         setTripData(savedTrip);
         setMode(savedMode);
 
+        // Build payload
         const payload = {
           destination: savedTrip.to_location,
-          duration_days: savedTrip.duration_days,
+          duration_days: savedTrip.duration_days || 1,
           preferences: savedTrip.travel_preferences || [],
+          experience_type: savedTrip.experience_type || "moderate",
+          budget: savedTrip.budget || 5000,
+          group_size: savedTrip.people_count || 1,
           mode: savedMode,
         };
 
+        // Add places for custom mode
         if (savedMode === "custom") {
           payload.places = selectedPlaces;
         }
 
-        const res = await apiPost("/api/tour/itinerary/generate/", payload);
+        console.log("🚀 Sending payload:", payload);
+
+        // Call API
+        const endpoint = "/api/tour/itinerary/generate/";
+
+        const res = await apiPost(endpoint, payload);
+
+        console.log("✅ API Response:", res);
 
         if (!res.success) {
           throw new Error(res.error || "Failed to generate itinerary.");
         }
 
-        // Backend may send 2 itineraries when custom mode is invalid
+        // Handle response based on mode and validity
         if (res.valid === false && res.mode === "custom") {
           setValid(false);
           setCustomItinerary(res.custom_itinerary || null);
@@ -86,6 +124,7 @@ export default function ItineraryPage() {
         }
 
       } catch (err) {
+        console.error("❌ Itinerary Generation Error:", err);
         setError(err?.message || "An error occurred");
       } finally {
         setLoading(false);
@@ -258,7 +297,7 @@ export default function ItineraryPage() {
           <div className="mt-4 text-center">
             <p className="text-sm text-gray-600">
               {showWhich === "custom" 
-                ? "📍 Viewing itinerary based on your selected places (with AI enhancements)"
+                ? "🗺️ Viewing itinerary based on your selected places (with AI enhancements)"
                 : "✨ Viewing fully AI-optimized itinerary with complete recommendations"}
             </p>
           </div>

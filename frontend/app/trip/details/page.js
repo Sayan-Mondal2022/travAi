@@ -89,13 +89,27 @@ export default function DetailsStep() {
   };
 
   const duration =
-    selectedDates.start && selectedDates.end
-      ? Math.ceil(
-          (selectedDates.end - selectedDates.start) / (1000 * 60 * 60 * 24)
+  selectedDates.start && selectedDates.end
+    ? Math.max(
+        1,
+        Math.round(
+          (new Date(
+            selectedDates.end.getFullYear(),
+            selectedDates.end.getMonth(),
+            selectedDates.end.getDate()
+          ) -
+            new Date(
+              selectedDates.start.getFullYear(),
+              selectedDates.start.getMonth(),
+              selectedDates.start.getDate()
+            )) /
+            (1000 * 60 * 60 * 24)
         ) + 1
-      : selectedDates.start
-      ? 1
-      : 0;
+      )
+    : selectedDates.start
+    ? 1
+    : 0;
+
 
   const handleContinueToCalendar = () => {
     if (formData.travel_type && formData.trip_type) {

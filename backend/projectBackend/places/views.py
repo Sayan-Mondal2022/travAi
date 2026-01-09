@@ -348,25 +348,40 @@ def fetch_nearby_grouped(lat: float, lng: float, formatted_destination: str, pre
 # ======================================================================
 # MAIN PREFERENCE-BASED API
 # ======================================================================
-@tour_router.get("/preference-places/{destination}")
-def get_preference_based_places(request, destination: str, travel_preferences: str, experience_type: str):
-    """
-    MAIN API:
-    - Uses TextSearch with preference-based query generation.
-    - Makes MULTIPLE queries per category to fetch more places (up to 40+).
-    - Groups results by preference (reference_places).
-    - Also calls secondary API logic (NearbySearch) to get recommended_places.
-    - Caches full combined response in trip_places_cache keyed by cache_key.
-    - Fallback order: main -> secondary -> old v1.
-    """
-    # Parse preferences
-    preferences_list = [p.strip() for p in travel_preferences.split(",")] if travel_preferences else []
+# ======================================================================
+# MAIN PREFERENCE-BASED API - FIXED TO HANDLE ARRAY
+# ======================================================================
+from typing import Optional, List
+from ninja import Query
 
+@tour_router.get("/preference-places/{destination}")
+def get_preference_based_places(
+    request, 
+    destination: str, 
+    travel_preferences: Optional[str] = Query(None),  # ✅ Accept as query string
+    experience_type: str = Query("moderate")
+):
+    """
+    MAIN API with improved empty preferences handling
+    
+    Query params:
+    - travel_preferences: comma-separated string "Adventure,Food" or None
+    - experience_type: "budget", "moderate", or "luxury"
+    """
+    # ✅ Parse preferences from comma-separated string OR empty
+    if not travel_preferences or travel_preferences.strip() == "":
+        preferences_list = []
+    else:
+        preferences_list = [p.strip() for p in travel_preferences.split(",") if p.strip()]
+    
+    print(f"🔍 Received preferences string: '{travel_preferences}'")
+    print(f"📋 Parsed as list: {preferences_list}")
+    
     # Build cache key and try DB first
     cache_key = build_cache_key(destination, preferences_list, experience_type)
     cached_full = load_trip_response(cache_key)
     if cached_full:
-        print("Using full trip cache for:", cache_key)
+        print(f"✅ Using cache for: {cache_key}")
         return {"source": "db", **cached_full}
 
     # Reset global sets for this request
@@ -393,69 +408,131 @@ def get_preference_based_places(request, destination: str, travel_preferences: s
         lodging: List[Dict[str, Any]] = []
 
         # ===== TOURIST ATTRACTIONS (Multiple Queries to get 40+ places) =====
+        print(f"🔍 Starting tourist attractions fetch for {destination}")
+        print(f"📋 Generated {len(tourist_queries)} tourist queries: {tourist_queries}")
+
         if tourist_queries:
-            # Take up to 3 queries to get more variety
             queries_to_use = random.sample(tourist_queries, min(3, len(tourist_queries)))
+            print(f"✅ Selected {len(queries_to_use)} queries to execute")
             
-            for query_obj in queries_to_use:
+            for idx, query_obj in enumerate(queries_to_use, 1):
                 chosen_pref = query_obj["preference"]
                 chosen_query = query_obj["query"]
-
-                raw = fetch_places_data(GOOGLE_API_KEY, f"{chosen_query} in {destination}")
-                if raw:
+                full_query = f"{chosen_query} in {destination}"
+                
+                print(f"🔎 Query {idx}/{len(queries_to_use)}: '{full_query}'")
+                
+                try:
+                    raw = fetch_places_data(GOOGLE_API_KEY, full_query)
+                    
+                    if raw is None:
+                        print(f"❌ Query returned None (API error)")
+                        continue
+                        
+                    if not raw or not raw.get("places"):
+                        print(f"⚠️ Query returned empty results")
+                        continue
+                    
                     places = filter_textSearch_place_data(raw)
+                    print(f"✅ Query returned {len(places)} places")
+                    
                     for p in places:
                         p["preference_tag"] = chosen_pref
+                    
                     tourist_attractions.extend(places)
-                    print(f"Tourist query '{chosen_query}' returned {len(places)} places")
+                    print(f"📊 Total tourist attractions so far: {len(tourist_attractions)}")
+                    
+                except Exception as e:
+                    print(f"❌ Error processing query '{full_query}': {e}")
+                    import traceback
+                    traceback.print_exc()
+                    continue
+        else:
+            print("⚠️ No tourist queries generated!")
 
         # ===== RESTAURANTS (Multiple Queries) =====
+        print(f"\n🍽️ Starting restaurants fetch")
+        print(f"📋 Generated {len(restaurant_queries)} restaurant queries")
+
         if restaurant_queries:
-            # Take up to 2 queries for restaurants
             queries_to_use = random.sample(restaurant_queries, min(2, len(restaurant_queries)))
             
-            for query_obj in queries_to_use:
+            for idx, query_obj in enumerate(queries_to_use, 1):
                 chosen_pref = query_obj["preference"]
                 chosen_query = query_obj["query"]
-
-                raw = fetch_places_data(GOOGLE_API_KEY, f"{chosen_query} in {destination}")
-                if raw:
+                full_query = f"{chosen_query} in {destination}"
+                
+                print(f"🔎 Query {idx}/{len(queries_to_use)}: '{full_query}'")
+                
+                try:
+                    raw = fetch_places_data(GOOGLE_API_KEY, full_query)
+                    
+                    if raw is None:
+                        print(f"❌ Query returned None (API error)")
+                        continue
+                        
+                    if not raw or not raw.get("places"):
+                        print(f"⚠️ Query returned empty results")
+                        continue
+                    
                     places = filter_textSearch_place_data(raw)
+                    print(f"✅ Query returned {len(places)} places")
+                    
                     for p in places:
                         p["preference_tag"] = chosen_pref
+                    
                     restaurants.extend(places)
-                    print(f"Restaurant query '{chosen_query}' returned {len(places)} places")
+                    print(f"📊 Total restaurants so far: {len(restaurants)}")
+                    
+                except Exception as e:
+                    print(f"❌ Error processing query: {e}")
+                    continue
 
         # ===== LODGING (Multiple Queries) =====
+        print(f"\n🏨 Starting lodging fetch")
+        print(f"📋 Generated {len(lodging_queries)} lodging queries")
+
         if lodging_queries:
-            # Take up to 2 queries for lodging
             queries_to_use = random.sample(lodging_queries, min(2, len(lodging_queries)))
             
-            for query_obj in queries_to_use:
+            for idx, query_obj in enumerate(queries_to_use, 1):
                 chosen_pref = query_obj["preference"]
                 chosen_query = query_obj["query"]
-
-                raw = fetch_places_data(GOOGLE_API_KEY, f"{chosen_query} in {destination}")
-                if raw:
+                full_query = f"{chosen_query} in {destination}"
+                
+                print(f"🔎 Query {idx}/{len(queries_to_use)}: '{full_query}'")
+                
+                try:
+                    raw = fetch_places_data(GOOGLE_API_KEY, full_query)
+                    
+                    if raw is None:
+                        print(f"❌ Query returned None (API error)")
+                        continue
+                        
+                    if not raw or not raw.get("places"):
+                        print(f"⚠️ Query returned empty results")
+                        continue
+                    
                     places = filter_textSearch_place_data(raw)
+                    print(f"✅ Query returned {len(places)} places")
+                    
                     for p in places:
                         p["preference_tag"] = chosen_pref
+                    
                     lodging.extend(places)
-                    print(f"Lodging query '{chosen_query}' returned {len(places)} places")
+                    print(f"📊 Total lodging so far: {len(lodging)}")
+                    
+                except Exception as e:
+                    print(f"❌ Error processing query: {e}")
+                    continue
+
+        print(f"\n📊 FETCH SUMMARY:")
+        print(f"   Tourist Attractions: {len(tourist_attractions)} places")
+        print(f"   Restaurants: {len(restaurants)} places")
+        print(f"   Lodging: {len(lodging)} places")
 
         # Remove duplicates using global sets - NO LIMIT
         def remove_duplicates(data, limit=None, container_set=None):
-            """
-            Remove duplicate places based on their IDs.
-            
-            Args:
-                data: List of place dictionaries
-                limit: Optional maximum number of places to return (None = no limit)
-                container_set: Set to track unique place IDs across calls
-            
-            Returns:
-                List of unique places
-            """
             results = []
             if container_set is None:
                 container_set = set()
@@ -469,13 +546,12 @@ def get_preference_based_places(request, destination: str, travel_preferences: s
                     container_set.add(pid)
                     results.append(place)
                     
-                    # Only break if limit is specified and reached
                     if limit and len(results) >= limit:
                         break
 
             return results
 
-        # Remove duplicates WITHOUT limits to get all available places
+        # Remove duplicates WITHOUT limits
         tourist_attractions = remove_duplicates(tourist_attractions, limit=None, container_set=PREF_TOURIST_SET)
         restaurants = remove_duplicates(restaurants, limit=None, container_set=PREF_RESTAURANT_SET)
         lodging = remove_duplicates(lodging, limit=None, container_set=PREF_LODGING_SET)
@@ -495,7 +571,6 @@ def get_preference_based_places(request, destination: str, travel_preferences: s
             secondary_source = "secondary"
         except Exception as e2:
             print(f"Secondary fetch_nearby_grouped failed: {e2}")
-            # If secondary fails, recommended is empty but structure preserved
             recommended_places = {
                 "tourist_attractions": {"_others": []},
                 "restaurants": {"_others": []},
@@ -541,11 +616,10 @@ def get_preference_based_places(request, destination: str, travel_preferences: s
                 raise RuntimeError("Geocoding failed in secondary fallback.")
 
             weather_info = weather.get_forecast_weather(lat, lng)
-
-            preferences_list_fallback = preferences_list or []
+            preferences_list_fallback = preferences_list if 'preferences_list' in locals() else []
 
             recommended_places = fetch_nearby_grouped(lat, lng, formatted_destination, preferences_list_fallback)
-            reference_places = recommended_places  # Use same as reference if main failed
+            reference_places = recommended_places
 
             response_data = {
                 "cache_key": cache_key,
@@ -583,11 +657,12 @@ def get_preference_based_places(request, destination: str, travel_preferences: s
                 "lodging": {"_others": []},
             }
 
+            prefs_fallback = preferences_list if 'preferences_list' in locals() else []
             response_data = {
-                "cache_key": cache_key,
+                "cache_key": build_cache_key(destination, prefs_fallback, experience_type),
                 "destination": v1.get("destination", destination),
                 "coordinates": coords,
-                "travel_preferences": preferences_list,
+                "travel_preferences": prefs_fallback,
                 "experience_type": experience_type,
                 "generated_queries": {},
                 "reference_places": ref_places,
@@ -596,8 +671,49 @@ def get_preference_based_places(request, destination: str, travel_preferences: s
                 "secondary_source": "v1_fallback",
             }
 
-            save_trip_response(cache_key, response_data)
+            save_trip_response(response_data["cache_key"], response_data)
             return {"source": "fallback_v1", **response_data}
+
+
+# ======================================================================
+# TRIP-BASED REUSE ENDPOINT - ALSO NEEDS FIX
+# ======================================================================
+@tour_router.get("/trip-places/{trip_id}")
+def get_places_for_trip(request, trip_id: str):
+    """
+    Reuse trip details stored in Mongo and call main preference-based logic.
+    """
+    try:
+        from bson import ObjectId
+
+        trip = settings.MONGO_DB.trip_details.find_one({"_id": ObjectId(trip_id)})
+        if not trip:
+            return {"error": "Trip not found", "status": 404}
+
+        destination = trip.get("to_location")
+        prefs = trip.get("travel_preferences", [])  # Array from MongoDB
+        experience = trip.get("experience_type", "moderate")
+
+        if not destination:
+            return {"error": "Destination missing in trip data", "status": 400}
+
+        # ✅ Convert array to comma-separated string
+        preferences_string = ",".join(prefs) if prefs else ""
+        
+        print(f"📍 Trip {trip_id}: {destination}")
+        print(f"🎯 Preferences from DB (array): {prefs}")
+        print(f"🔗 Converted to string: '{preferences_string}'")
+
+        return get_preference_based_places(
+            request,
+            destination,
+            preferences_string,
+            experience,
+        )
+
+    except Exception as e:
+        print(f"Error in get_places_for_trip: {str(e)}")
+        return {"error": f"Internal server error: {str(e)}", "status": 500}
 
 # ======================================================================
 # TRIP-BASED REUSE ENDPOINT

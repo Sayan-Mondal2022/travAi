@@ -42,13 +42,26 @@ def safe_str(value):
 def group_places_by_preference(places: List[Dict[str, Any]], preferences_list: List[str]) -> Dict[str, List[Dict[str, Any]]]:
     """
     Groups places based on whether the place-related text contains a given preference term.
+    
+    HANDLES EMPTY PREFERENCES: If no preferences provided, returns all places under "General" category.
+    
     Returns:
         {
           "<preference1>": [...],
           "<preference2>": [...],
-          "_others": [...]
+          "_others": [...],
+          # OR if no preferences:
+          "General": [all places]
         }
     """
+    # ✅ FIX: Handle empty preferences case
+    if not preferences_list or len(preferences_list) == 0:
+        return {
+            "General": places,
+            "_others": []
+        }
+    
+    # Original logic for preference-based grouping
     grouped: Dict[str, List[Dict[str, Any]]] = {pref: [] for pref in preferences_list}
     grouped["_others"] = []
 

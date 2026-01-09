@@ -40,6 +40,24 @@ def generate_tourist_queries(travel_preferences: List[str], experience_type: str
     preference_queries = load_preference_queries()
     output = []
 
+    # ✅ FIX: If NO preferences provided, use generic queries
+    if not travel_preferences or len(travel_preferences) == 0:
+        print("📍 No preferences - using generic queries")
+        generic_queries = [
+            "top tourist attractions",
+            "popular places to visit",
+            "must-see attractions",
+            "famous landmarks",
+            "things to do",
+            "sightseeing spots"
+        ]
+        for q in generic_queries:
+            output.append({"preference": "General", "query": q})
+        return output[:8]
+
+    print(f"✅ Using preference-based queries for: {travel_preferences}")
+    
+    # Original logic for preference-based queries
     for preference in travel_preferences:
         pref_key = preference.strip().title()
 
@@ -61,6 +79,7 @@ def generate_tourist_queries(travel_preferences: List[str], experience_type: str
             unique_list.append(item)
 
     return unique_list[:8]
+
 
 def generate_restaurant_queries(experience_type: str, travel_preferences: List[str]):
     """Generate restaurant queries with metadata."""
@@ -94,11 +113,13 @@ def generate_restaurant_queries(experience_type: str, travel_preferences: List[s
 
     # PREFERENCE-BASED secondary enhancements
     cuisine_mapping = {
+        "Food": ["local cuisine restaurants", "food tours", "culinary experiences"],
         "Food & Cuisine": ["local cuisine restaurants", "food tours", "culinary experiences"],
         "Local Experiences": ["authentic local restaurants", "traditional dining"],
         "Romantic": ["romantic restaurants", "candlelight dining", "intimate cafes"],
         "Adventure": ["unique dining experiences", "adventure-themed restaurants"],
         "Culture": ["traditional cultural restaurants", "ethnic cuisine"],
+        "Cultural": ["traditional cultural restaurants", "ethnic cuisine"],
         "Nature": ["restaurants with scenic views", "garden restaurants"],
         "Budget Travel": ["budget restaurants", "affordable dining"]
     }
@@ -161,4 +182,3 @@ def generate_lodging_queries(experience_type: str, travel_preferences: List[str]
             unique_list.append(item)
 
     return unique_list[:5]
-   

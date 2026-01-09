@@ -1,10 +1,9 @@
-// app/trip/preferences/page.js
 "use client";
 
-import { useState, useEffect } from "react";
+import { apiPost } from "@/lib/api";
 import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
 import {
-  Cloud,
   Route,
   IndianRupee,
   Bike,
@@ -15,15 +14,11 @@ import {
   Star,
   Crown,
   Wallet,
+  Check,
+  ChevronRight,
 } from "lucide-react";
-import { apiPost } from "@/lib/api";
 
-const WEATHER_OPTIONS = [
-  { id: "warm", label: "Warm & Sunny", emoji: "☀️" },
-  { id: "cool", label: "Cool & Breezy", emoji: "🌤️" },
-  { id: "cold", label: "Cold & Snowy", emoji: "❄️" },
-  { id: "any", label: "Any Weather", emoji: "🌈" },
-];
+/* ------------------ CONSTANTS ------------------ */
 
 const TRANSPORT_OPTIONS = [
   {
@@ -69,9 +64,6 @@ const EXPERIENCE_OPTIONS = [
     label: "Budget",
     description: "Affordable & economical",
     icon: Wallet,
-    color: "text-green-600",
-    bgColor: "bg-green-50",
-    borderColor: "border-green-200",
     multiplier: 0.7,
   },
   {
@@ -79,9 +71,6 @@ const EXPERIENCE_OPTIONS = [
     label: "Moderate",
     description: "Comfortable & balanced",
     icon: Star,
-    color: "text-blue-600",
-    bgColor: "bg-blue-50",
-    borderColor: "border-blue-200",
     multiplier: 1,
   },
   {
@@ -89,9 +78,6 @@ const EXPERIENCE_OPTIONS = [
     label: "Luxury",
     description: "Premium & luxurious",
     icon: Crown,
-    color: "text-purple-600",
-    bgColor: "bg-purple-50",
-    borderColor: "border-purple-200",
     multiplier: 1.5,
   },
 ];
@@ -108,399 +94,449 @@ const TRAVEL_PREFERENCES = [
   "Local Experiences",
 ];
 
-// Budget ranges for different transport modes
-const BUDGET_RANGES = {
-  default: { min: 1500, step: 500 },
-  flight: { min: 3500, step: 500 },
-  train: { min: 1500, step: 500 },
-  car: { min: 1000, step: 500 },
-  bike: { min: 850, step: 500 },
-  mixed: { min: 2500, step: 500 },
+const preferenceImages = {
+  Adventure: "🧗‍♂️",
+  Relaxation: "🧘",
+  Cultural: "🎭",
+  Food: "🍕",
+  Shopping: "🛍️",
+  Nature: "🌲",
+  Historical: "🏛️",
+  Nightlife: "🌃",
+  "Local Experiences": "🏙️",
 };
+
+const BUDGET_RANGES = {
+  default: { min: 1500 },
+  flight: { min: 3500 },
+  train: { min: 1500 },
+  car: { min: 1000 },
+  bike: { min: 850 },
+  mixed: { min: 2500 },
+};
+
+/* ------------------ COMPONENT ------------------ */
 
 export default function PreferencesStep() {
   const router = useRouter();
+
   const [formData, setFormData] = useState({
-    // Weather and transport
-    weather_preference: "",
     mode_of_transport: "",
-
-    // Experience type
     experience_type: "",
-
-    // Travel preferences
     travel_preferences: [],
-
-    // Budget
     budget: BUDGET_RANGES.default.min,
   });
+
   const [currentBudgetRange, setCurrentBudgetRange] = useState(
     BUDGET_RANGES.default
   );
   const [suggestedBudget, setSuggestedBudget] = useState(0);
+  const [showInterestsAndBudget, setShowInterestsAndBudget] = useState(false);
 
-  // This hook loads data when the component first mounts
+  /* ------------------ ✅ LOAD FROM LOCALSTORAGE ON MOUNT ------------------ */
   useEffect(() => {
-    const savedData = localStorage.getItem("tripData");
-    if (savedData) {
-      const parsedData = JSON.parse(savedData);
-      setFormData((prev) => ({ ...prev, ...parsedData }));
+    // Load existing tripData
+    const savedTripData = JSON.parse(localStorage.getItem("tripData") || "{}");
 
-      // Set initial budget range based on saved transport mode
-      if (parsedData.mode_of_transport) {
-        const newRange =
-          BUDGET_RANGES[parsedData.mode_of_transport] || BUDGET_RANGES.default;
-        setCurrentBudgetRange(newRange);
+    // Load preferences if they exist
+    if (
+      savedTripData.mode_of_transport ||
+      savedTripData.experience_type ||
+      savedTripData.travel_preferences
+    ) {
+      setFormData({
+        mode_of_transport: savedTripData.mode_of_transport || "",
+        experience_type: savedTripData.experience_type || "",
+        travel_preferences: savedTripData.travel_preferences || [],
+        budget: savedTripData.budget || BUDGET_RANGES.default.min,
+      });
+
+      // If both transport and experience are set, show step 2
+      if (savedTripData.mode_of_transport && savedTripData.experience_type) {
+        setShowInterestsAndBudget(true);
       }
     }
   }, []);
 
-  // This hook saves the current page's data to localStorage whenever it changes
+  /* ------------------ ✅ SAVE TO LOCALSTORAGE WHENEVER FORMDATA CHANGES ------------------ */
   useEffect(() => {
-    const savedData = JSON.parse(localStorage.getItem("tripData") || "{}");
-    const updatedTripData = { ...savedData, ...formData };
-    localStorage.setItem("tripData", JSON.stringify(updatedTripData));
-  }, [formData]);
-
-  // Update budget range and calculate suggested budget when transport mode or experience type changes
-  useEffect(() => {
-    if (formData.mode_of_transport) {
-      const newRange =
-        BUDGET_RANGES[formData.mode_of_transport] || BUDGET_RANGES.default;
-      setCurrentBudgetRange(newRange);
-
-      // Calculate suggested budget based on transport and experience type
-      let baseBudget = newRange.min;
-      if (formData.experience_type) {
-        const experience = EXPERIENCE_OPTIONS.find(
-          (exp) => exp.id === formData.experience_type
-        );
-        baseBudget = Math.round(newRange.min * experience.multiplier);
-      }
-
-      setSuggestedBudget(baseBudget);
-
-      // Always update budget to the suggested amount when experience type changes
-      // or when transport mode changes (if experience type is already selected)
-      if (formData.experience_type || formData.mode_of_transport) {
-        setFormData((prev) => ({
-          ...prev,
-          budget: baseBudget,
-        }));
-      }
+    // Don't save on initial render (when everything is empty)
+    if (
+      !formData.mode_of_transport &&
+      !formData.experience_type &&
+      formData.travel_preferences.length === 0
+    ) {
+      return;
     }
-  }, [formData.mode_of_transport, formData.experience_type]);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+    // Get existing tripData
+    const savedTripData = JSON.parse(localStorage.getItem("tripData") || "{}");
 
-    // Get all data from localStorage and combine with current form data
-    const savedData = JSON.parse(localStorage.getItem("tripData") || "{}");
-
-    // Prepare data according to your Python schema
-    const allData = {
-      // Location fields (from previous steps)
-      from_location: savedData.from_location || "",
-      to_location: savedData.to_location || "",
-
-      // Date fields (from previous steps) - ensure they are strings
-      start_date: savedData.start_date
-        ? new Date(savedData.start_date).toISOString().split("T")[0]
-        : "",
-      end_date: savedData.end_date
-        ? new Date(savedData.end_date).toISOString().split("T")[0]
-        : "",
-      to_date: savedData.end_date
-        ? new Date(savedData.end_date).toISOString().split("T")[0]
-        : "", // to_date matches end_date
-      duration_days: savedData.duration_days || 1,
-
-      // Travel type (from previous steps)
-      travel_type: savedData.travel_type || "",
-
-      // Group details (from previous steps) - ADD ELDER_COUNT
-      people_count: savedData.people_count || 1,
-      has_elderly: savedData.has_elderly || false,
-      has_children: savedData.has_children || false,
-      has_pets: savedData.has_pets || false,
-      children_count: savedData.children_count || 0,
-      elder_count: savedData.elder_count || 0, 
-      pets_count: savedData.pets_count || 0,
-
-      // Current form data (preferences)
-      weather_preference: formData.weather_preference,
+    // Merge with new preferences
+    const updatedTripData = {
+      ...savedTripData,
       mode_of_transport: formData.mode_of_transport,
       experience_type: formData.experience_type,
       travel_preferences: formData.travel_preferences,
-      budget: parseFloat(formData.budget) || 0,
+      budget: formData.budget,
     };
 
-    console.log("Data being sent to the backend:", allData);
+    // Save back to localStorage
+    localStorage.setItem("tripData", JSON.stringify(updatedTripData));
+    console.log("💾 Saved to localStorage:", updatedTripData);
+  }, [formData]);
 
-    // Validate required fields
-    const requiredFields = [
+  /* ------------------ BUDGET CALCULATION EFFECT ------------------ */
+  useEffect(() => {
+    if (!formData.mode_of_transport) return;
+
+    const range =
+      BUDGET_RANGES[formData.mode_of_transport] || BUDGET_RANGES.default;
+    setCurrentBudgetRange(range);
+
+    let base = range.min;
+    if (formData.experience_type) {
+      const exp = EXPERIENCE_OPTIONS.find(
+        (e) => e.id === formData.experience_type
+      );
+      base = Math.round(range.min * exp.multiplier);
+    }
+
+    setSuggestedBudget(base);
+    setFormData((p) => ({ ...p, budget: base }));
+  }, [formData.mode_of_transport, formData.experience_type]);
+
+  const calculateDurationDays = (start, end) => {
+    if (!start || !end) return 1;
+
+    const startDate = new Date(start + "T00:00:00");
+    const endDate = new Date(end + "T00:00:00");
+
+    return Math.max(
+      1,
+      Math.round(
+        (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
+      )
+    );
+  };
+
+  /* ------------------ HANDLERS ------------------ */
+
+  const handleSubmit = async () => {
+    const savedData = JSON.parse(localStorage.getItem("tripData") || "{}");
+    const duration_days =
+    savedData.trip_type === "round"
+      ? calculateDurationDays(savedData.start_date, savedData.end_date) + 1
+      : 1;
+
+    const payload = {
+      from_location: savedData.from_location,
+      to_location: savedData.to_location,
+
+      start_date: savedData.start_date,
+      end_date: savedData.end_date || null,
+      duration_days: duration_days,
+
+      travel_type: savedData.travel_type,
+      trip_type: savedData.trip_type,
+
+      people_count: savedData.people_count,
+      has_children: savedData.has_children || false,
+      has_elderly: savedData.has_elderly || false,
+      has_pets: savedData.has_pets || false,
+      children_count: savedData.children_count || 0,
+      elder_count: savedData.elder_count || 0,
+      pets_count: savedData.pets_count || 0,
+
+      mode_of_transport: formData.mode_of_transport,
+      experience_type: formData.experience_type,
+      travel_preferences: formData.travel_preferences,
+      budget: Number(formData.budget),
+    };
+
+    const required = [
       "from_location",
       "to_location",
       "start_date",
-      "end_date",
       "travel_type",
-      "weather_preference",
+      "trip_type",
       "mode_of_transport",
       "experience_type",
       "budget",
     ];
 
-    const missingFields = requiredFields.filter((field) => !allData[field]);
-    if (missingFields.length > 0) {
-      alert(
-        `Please fill in all required fields. Missing: ${missingFields.join(
-          ", "
-        )}`
-      );
+    const missing = required.filter((k) => !payload[k]);
+    if (missing.length) {
+      alert(`Missing required fields: ${missing.join(", ")}`);
       return;
     }
 
     try {
-      const result = await apiPost("/api/trip/add-trip/", allData);
+      console.log("🚀 Submitting payload:", payload);
+      const result = await apiPost("/api/trip/add-trip/", payload);
+      localStorage.setItem("currentTrip", JSON.stringify(result));
 
-      // Store the trip data for use in itinerary
-      localStorage.setItem("currentTrip", JSON.stringify(result.data));
-      router.push(`/trip/places`);
-    } catch (error) {
-      console.error("Error:", error);
+      // ✅ Also update tripData with the complete data
+      localStorage.setItem("tripData", JSON.stringify(payload));
+
+      router.push("/trip/places");
+    } catch (err) {
+      console.error(err);
       alert("Failed to create trip. Please try again.");
     }
   };
 
   const handleInputChange = (e) => {
-    const { name, value, type, checked } = e.target;
+    const { name, value, checked, type } = e.target;
 
-    if (type === "checkbox") {
-      setFormData((prev) => ({
-        ...prev,
+    if (name === "travel_preferences") {
+      setFormData((p) => ({
+        ...p,
         travel_preferences: checked
-          ? [...prev.travel_preferences, value]
-          : prev.travel_preferences.filter((item) => item !== value),
+          ? [...p.travel_preferences, value]
+          : p.travel_preferences.filter((i) => i !== value),
       }));
+    } else if (type === "number") {
+      setFormData((p) => ({ ...p, [name]: Number(value) }));
     } else {
-      setFormData((prev) => ({ ...prev, [name]: value }));
+      setFormData((p) => ({ ...p, [name]: value }));
     }
   };
 
-  const handleTransportChange = (transportId) => {
-    setFormData((prev) => ({
-      ...prev,
-      mode_of_transport: transportId,
-    }));
-  };
+  const handleTransportChange = (id) =>
+    setFormData((p) => ({ ...p, mode_of_transport: id }));
 
-  const handleExperienceChange = (experienceId) => {
-    setFormData((prev) => ({
-      ...prev,
-      experience_type: experienceId,
-    }));
-  };
+  const handleExperienceChange = (id) =>
+    setFormData((p) => ({ ...p, experience_type: id }));
 
   const handleBack = () => {
-    router.back();
+    if (showInterestsAndBudget) setShowInterestsAndBudget(false);
+    else router.back();
   };
 
-  // Get current transport option for display
+  const handleContinueToInterests = () => {
+    setShowInterestsAndBudget(true);
+  };
+
+  const handleEditPreferences = () => {
+    setShowInterestsAndBudget(false);
+  };
+
   const getCurrentTransportOption = () => {
-    return TRANSPORT_OPTIONS.find(
-      (option) => option.id === formData.mode_of_transport
-    );
+    return TRANSPORT_OPTIONS.find((t) => t.id === formData.mode_of_transport);
   };
 
-  // Get current experience option for display
   const getCurrentExperienceOption = () => {
-    return EXPERIENCE_OPTIONS.find(
-      (option) => option.id === formData.experience_type
-    );
+    return EXPERIENCE_OPTIONS.find((e) => e.id === formData.experience_type);
   };
+
+  const isStepOneComplete =
+    formData.mode_of_transport && formData.experience_type;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-cyan-100 flex items-center justify-center p-4 transition-all duration-500">
-      <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-xl relative transform transition-all duration-300 hover:shadow-2xl">
-        {/* Back Button */}
-        <button
-          onClick={handleBack}
-          className="absolute left-4 top-4 p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-all duration-200 cursor-pointer"
-        >
-          <ArrowLeft className="w-5 h-5" />
-        </button>
-
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center p-4">
+      <div className="bg-white/95 backdrop-blur-2xl rounded-3xl shadow-2xl p-8 w-full max-w-4xl border border-white/20">
         {/* Header */}
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4 transform transition-all duration-300 hover:scale-110">
-            <Cloud className="w-8 h-8 text-blue-600" />
+        <div className="relative text-center mb-8">
+          <button
+            onClick={handleBack}
+            className="absolute left-0 top-0 p-2 rounded-xl hover:bg-blue-50 transition-all duration-300 hover:scale-110"
+          >
+            <ArrowLeft className="text-[#03045e]" />
+          </button>
+          <div className="space-y-2">
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-[#03045e] to-[#0077b6] bg-clip-text text-transparent">
+              Final Preferences
+            </h1>
+            <p className="text-sm text-[#0077b6]">
+              {!showInterestsAndBudget
+                ? "Choose your travel style"
+                : "What interests you?"}
+            </p>
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2 transform transition-all duration-300">
-            Final Preferences
-          </h1>
-          <p className="text-gray-600 transition-all duration-300">
-            Customize your perfect trip
-          </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Weather Preference */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-4">
-              <Cloud className="w-5 h-5 inline mr-2 text-blue-500 transition-transform duration-300 hover:scale-110" />
-              Preferred Weather?
-            </label>
-            <div className="grid grid-cols-2 gap-3">
-              {WEATHER_OPTIONS.map((weather) => (
-                <label
-                  key={weather.id}
-                  className={`flex flex-col items-center p-4 border-2 rounded-2xl cursor-pointer transition-all duration-300 transform hover:scale-[1.02] ${
-                    formData.weather_preference === weather.id
-                      ? "border-blue-500 bg-blue-50 shadow-md scale-105"
-                      : "border-gray-200 hover:border-blue-300 bg-white"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="weather_preference"
-                    value={weather.id}
-                    checked={formData.weather_preference === weather.id}
-                    onChange={handleInputChange}
-                    required
-                    className="sr-only"
-                  />
-                  <span className="text-2xl mb-2 transition-transform duration-300 hover:scale-110">
-                    {weather.emoji}
-                  </span>
-                  <span className="text-sm text-gray-900 text-center">
-                    {weather.label}
-                  </span>
-                </label>
-              ))}
-            </div>
-          </div>
+        {/* Progress Indicator */}
+        <div className="flex items-center justify-center gap-2 mb-8">
+          <div
+            className={`h-2 rounded-full transition-all duration-500 ${
+              isStepOneComplete ? "w-20 bg-[#00b4d8]" : "w-12 bg-gray-300"
+            }`}
+          />
+          <div
+            className={`h-2 rounded-full transition-all duration-500 ${
+              showInterestsAndBudget ? "w-20 bg-[#00b4d8]" : "w-12 bg-gray-300"
+            }`}
+          />
+        </div>
 
-          {/* Transport Preference */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-4">
-              <Route className="w-5 h-5 inline mr-2 text-blue-500 transition-transform duration-300 hover:scale-110" />
-              How do you want to travel?
-            </label>
-            <div className="grid grid-cols-2 gap-3">
-              {TRANSPORT_OPTIONS.map((transport) => {
-                const IconComponent = transport.icon;
-                return (
-                  <label
-                    key={transport.id}
-                    className={`flex flex-col items-center p-4 border-2 rounded-2xl cursor-pointer transition-all duration-300 transform hover:scale-[1.02] ${
-                      formData.mode_of_transport === transport.id
-                        ? "border-blue-500 bg-blue-50 shadow-md scale-105"
-                        : "border-gray-200 hover:border-blue-300 bg-white"
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="mode_of_transport"
-                      value={transport.id}
-                      checked={formData.mode_of_transport === transport.id}
-                      onChange={() => handleTransportChange(transport.id)}
-                      required
-                      className="sr-only"
-                    />
-                    {transport.icon ? (
-                      <IconComponent
-                        className={`w-8 h-8 mb-2 ${transport.color} transition-transform duration-300 hover:scale-110`}
-                      />
-                    ) : (
-                      <span className="text-2xl mb-2 transition-transform duration-300 hover:scale-110">
-                        {transport.emoji}
+        <div className="space-y-6">
+          {/* STEP 1: Transport & Experience */}
+          <div
+            className={`transition-all duration-700 ease-in-out ${
+              showInterestsAndBudget
+                ? "opacity-0 h-0 overflow-hidden scale-95"
+                : "opacity-100 scale-100"
+            }`}
+          >
+            {/* Transport Preference */}
+            <div className="mb-8">
+              <label className="font-bold flex items-center gap-2 mb-4 text-[#03045e]">
+                <Route className="text-[#00b4d8]" size={20} /> How do you want
+                to travel?
+              </label>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                {TRANSPORT_OPTIONS.map((transport) => {
+                  const IconComponent = transport.icon;
+                  return (
+                    <button
+                      key={transport.id}
+                      type="button"
+                      onClick={() => handleTransportChange(transport.id)}
+                      className={`group relative flex flex-col items-center p-4 border-2 rounded-2xl transition-all duration-300 ${
+                        formData.mode_of_transport === transport.id
+                          ? "border-[#0077b6] bg-gradient-to-br from-[#caf0f8] to-[#90e0ef] shadow-lg scale-105"
+                          : "border-gray-200 hover:border-[#00b4d8] hover:shadow-md hover:scale-102"
+                      }`}
+                    >
+                      {formData.mode_of_transport === transport.id && (
+                        <div className="absolute -top-2 -right-2 bg-[#0077b6] rounded-full p-1 shadow-lg animate-bounce">
+                          <Check size={14} className="text-white" />
+                        </div>
+                      )}
+                      {transport.icon ? (
+                        <IconComponent
+                          className={`w-8 h-8 mb-2 ${transport.color} transition-transform duration-300 group-hover:scale-110`}
+                        />
+                      ) : (
+                        <span className="text-2xl mb-2 transition-transform duration-300 group-hover:scale-110">
+                          {transport.emoji}
+                        </span>
+                      )}
+                      <span className="text-sm font-semibold text-[#03045e]">
+                        {transport.label}
                       </span>
-                    )}
-                    <span className="text-sm text-gray-900">
-                      {transport.label}
-                    </span>
-                    <span className="text-xs text-gray-500 mt-1">
-                      Min:{" "}
-                      <IndianRupee className="w-3 h-3 inline transition-transform duration-300 hover:scale-110" />
-                      {transport.minBudget.toLocaleString()}
-                    </span>
-                  </label>
-                );
-              })}
+                      <span className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                        Min: <IndianRupee className="w-3 h-3" />
+                        {transport.minBudget.toLocaleString()}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Experience Type */}
+            <div
+              className={`transition-all duration-500 ${
+                formData.mode_of_transport
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 translate-y-4 pointer-events-none"
+              }`}
+            >
+              <label className="font-bold flex items-center gap-2 mb-4 text-[#03045e]">
+                <Star className="text-[#00b4d8]" size={20} /> What type of
+                experience do you prefer?
+              </label>
+              <div className="grid grid-cols-3 gap-3 mb-6">
+                {EXPERIENCE_OPTIONS.map((experience) => {
+                  const IconComponent = experience.icon;
+                  return (
+                    <button
+                      key={experience.id}
+                      type="button"
+                      onClick={() => handleExperienceChange(experience.id)}
+                      className={`group relative flex flex-col items-center p-4 border-2 rounded-2xl transition-all duration-300 ${
+                        formData.experience_type === experience.id
+                          ? "border-[#0077b6] bg-gradient-to-br from-[#caf0f8] to-[#90e0ef] shadow-lg scale-105"
+                          : "border-gray-200 hover:border-[#00b4d8] hover:shadow-md hover:scale-102"
+                      }`}
+                    >
+                      {formData.experience_type === experience.id && (
+                        <div className="absolute -top-2 -right-2 bg-[#0077b6] rounded-full p-1 shadow-lg animate-bounce">
+                          <Check size={14} className="text-white" />
+                        </div>
+                      )}
+                      <IconComponent
+                        className={`w-8 h-8 mb-2 ${experience.color} transition-transform duration-300 group-hover:scale-110`}
+                      />
+                      <span className="text-sm font-semibold text-[#03045e] text-center">
+                        {experience.label}
+                      </span>
+                      <span className="text-xs text-gray-500 text-center mt-1">
+                        {experience.description}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {isStepOneComplete && (
+                <button
+                  type="button"
+                  onClick={handleContinueToInterests}
+                  className="w-full py-4 rounded-2xl bg-gradient-to-r from-[#00b4d8] to-[#03045e] text-white font-bold transition-all duration-300 hover:scale-[1.02] hover:shadow-xl flex items-center justify-center gap-2 group"
+                >
+                  Continue to Interests
+                  <ChevronRight
+                    size={20}
+                    className="transition-transform duration-300 group-hover:translate-x-1"
+                  />
+                </button>
+              )}
             </div>
           </div>
 
-          {/* Experience Type */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-4">
-              <Star className="w-5 h-5 inline mr-2 text-blue-500 transition-transform duration-300 hover:scale-110" />
-              What type of experience do you prefer?
-            </label>
-            <div className="grid grid-cols-3 gap-3">
-              {EXPERIENCE_OPTIONS.map((experience) => {
-                const IconComponent = experience.icon;
-                return (
-                  <label
-                    key={experience.id}
-                    className={`flex flex-col items-center p-4 border-2 rounded-2xl cursor-pointer transition-all duration-300 transform hover:scale-[1.02] ${
-                      formData.experience_type === experience.id
-                        ? `${experience.borderColor} ${experience.bgColor} shadow-md scale-105 border-2`
-                        : "border-gray-200 hover:border-blue-300 bg-white"
-                    }`}
+          {/* STEP 2: Interests & Budget */}
+          <div
+            className={`transition-all duration-700 ease-in-out ${
+              showInterestsAndBudget
+                ? "opacity-100 scale-100"
+                : "opacity-0 h-0 overflow-hidden scale-95"
+            }`}
+          >
+            {/* Selection Summary */}
+            {showInterestsAndBudget && (
+              <div className="mb-6 p-5 rounded-2xl bg-gradient-to-r from-[#caf0f8]/60 to-[#90e0ef]/40 border-2 border-[#00b4d8]/30 backdrop-blur-sm">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-[#0077b6]">
+                        {getCurrentTransportOption()?.label} •{" "}
+                        {getCurrentExperienceOption()?.label}
+                      </p>
+                      <p className="text-xs text-gray-600">
+                        {getCurrentExperienceOption()?.description}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleEditPreferences}
+                    className="text-xs text-[#0077b6] hover:text-[#03045e] font-semibold transition-colors duration-300"
                   >
-                    <input
-                      type="radio"
-                      name="experience_type"
-                      value={experience.id}
-                      checked={formData.experience_type === experience.id}
-                      onChange={() => handleExperienceChange(experience.id)}
-                      required
-                      className="sr-only"
-                    />
-                    <IconComponent
-                      className={`w-8 h-8 mb-2 ${experience.color} transition-transform duration-300 hover:scale-110`}
-                    />
-                    <span className="text-sm font-medium text-gray-900 text-center">
-                      {experience.label}
-                    </span>
-                    <span className="text-xs text-gray-500 text-center mt-1">
-                      {experience.description}
-                    </span>
-                  </label>
-                );
-              })}
-            </div>
-          </div>
+                    Edit
+                  </button>
+                </div>
+              </div>
+            )}
 
-          {/* Travel Preferences */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-4">
-              <span className="text-xl transition-transform duration-300 hover:scale-110">
-                🌟
-              </span>{" "}
-              What are you interested in?
-            </label>
-            <div className="grid grid-cols-2 gap-3">
-              {TRAVEL_PREFERENCES.map((pref) => {
-                const preferenceImages = {
-                  Adventure: "🧗‍♂️",
-                  Relaxation: "🏖️",
-                  Cultural: "🎭",
-                  Food: "🍕",
-                  Shopping: "🛍️",
-                  Nature: "🌲",
-                  Historical: "🏛️",
-                  Nightlife: "🌃",
-                  "Local Experiences": "🏘️",
-                };
-
-                return (
+            {/* Travel Preferences */}
+            <div className="mb-6">
+              <label className="font-bold flex items-center gap-2 mb-4 text-[#03045e]">
+                <span className="text-xl">🌟</span> What are you interested in?
+                <span className="text-xs font-normal text-gray-500 ml-2">
+                  (Optional)
+                </span>
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                {TRAVEL_PREFERENCES.map((pref) => (
                   <label
                     key={pref}
-                    className={`flex items-center p-3 border-2 rounded-2xl cursor-pointer transition-all duration-300 transform hover:scale-[1.02] ${
+                    className={`flex items-center p-3 border-2 rounded-2xl cursor-pointer transition-all duration-300 hover:scale-102 ${
                       formData.travel_preferences.includes(pref)
-                        ? "border-blue-500 bg-blue-50 shadow-md"
-                        : "border-gray-200 hover:border-blue-300 bg-white"
+                        ? "border-[#0077b6] bg-gradient-to-br from-[#caf0f8] to-[#90e0ef] shadow-md"
+                        : "border-gray-200 hover:border-[#00b4d8] hover:shadow-sm"
                     }`}
                   >
                     <input
@@ -509,39 +545,36 @@ export default function PreferencesStep() {
                       value={pref}
                       checked={formData.travel_preferences.includes(pref)}
                       onChange={handleInputChange}
-                      className="w-4 h-4 text-blue-600 mr-3 transition-all duration-200"
+                      className="w-4 h-4 text-blue-600 mr-3"
                     />
                     <span className="text-2xl mr-3 transition-transform duration-300 hover:scale-110">
                       {preferenceImages[pref]}
                     </span>
-                    <span className="text-sm text-gray-700 font-medium">
+                    <span className="text-sm text-[#03045e] font-medium">
                       {pref}
                     </span>
                   </label>
-                );
-              })}
+                ))}
+              </div>
             </div>
-          </div>
 
-          {/* Budget */}
-          <div className="bg-blue-50 rounded-2xl p-6 transform transition-all duration-300 hover:scale-[1.02]">
-            <label className="block text-sm font-medium text-blue-700 mb-4 transition-all duration-300">
-              <IndianRupee className="w-5 h-5 inline mr-2 transition-transform duration-300 hover:scale-110" />
-              What&apos;s your budget? (INR)
-              {formData.mode_of_transport && formData.experience_type && (
-                <span className="text-blue-600 ml-2 text-xs animate-fadeIn">
-                  Suggested:{" "}
-                  <IndianRupee className="w-3 h-3 inline transition-transform duration-300 hover:scale-110" />
-                  {suggestedBudget.toLocaleString()} for{" "}
-                  {getCurrentTransportOption()?.label} (
-                  {getCurrentExperienceOption()?.label})
-                </span>
-              )}
-            </label>
-            <div className="space-y-4">
+            {/* Budget */}
+            <div className="bg-gradient-to-br from-[#caf0f8]/40 to-[#90e0ef]/30 rounded-2xl p-6 border-2 border-[#00b4d8]/20">
+              <label className="block text-sm font-bold text-[#03045e] mb-4">
+                <IndianRupee className="w-5 h-5 inline mr-2" />
+                What&apos;s your budget? (INR)
+                {formData.mode_of_transport && formData.experience_type && (
+                  <span className="block text-[#0077b6] mt-2 text-xs font-normal">
+                    Suggested: <IndianRupee className="w-3 h-3 inline" />
+                    {suggestedBudget.toLocaleString()} for{" "}
+                    {getCurrentTransportOption()?.label} (
+                    {getCurrentExperienceOption()?.label})
+                  </span>
+                )}
+              </label>
               <div className="flex items-center justify-center">
                 <div className="relative w-full max-w-xs">
-                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-blue-600 transition-all duration-300 group-hover:scale-110">
+                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#0077b6]">
                     <IndianRupee className="w-5 h-5" />
                   </span>
                   <input
@@ -550,31 +583,27 @@ export default function PreferencesStep() {
                     value={formData.budget}
                     onChange={handleInputChange}
                     min={suggestedBudget || currentBudgetRange.min}
-                    className="w-full pl-10 pr-4 py-3 text-lg font-bold text-blue-600 border-2 border-blue-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all duration-500 ease-out backdrop-blur-sm bg-white/50 hover:bg-white/80 hover:border-blue-300 hover:shadow-lg group"
+                    className="w-full pl-10 pr-4 py-3 text-lg font-bold text-[#03045e] border-2 border-[#00b4d8]/30 rounded-xl focus:border-[#0077b6] focus:ring-4 focus:ring-[#00b4d8]/20 transition-all duration-300 bg-white hover:border-[#00b4d8] hover:shadow-lg"
                     placeholder="Enter your budget"
                   />
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Navigation */}
-          <div className="flex space-x-4 pt-6">
+            {/* Submit */}
             <button
               type="button"
-              onClick={handleBack}
-              className="flex-1 bg-gray-200 text-gray-700 py-3 px-6 rounded-2xl cursor-pointer hover:bg-gray-300 hover:scale-105 active:scale-95 transition-all duration-200 font-medium"
-            >
-              ← Back
-            </button>
-            <button
-              type="submit"
-              className="flex-1 bg-blue-600 text-white py-3 px-6 rounded-2xl cursor-pointer hover:bg-blue-700 hover:scale-105 active:scale-95 transition-all duration-200 font-medium"
+              onClick={handleSubmit}
+              className="mt-6 w-full py-4 rounded-2xl bg-gradient-to-r from-[#00b4d8] to-[#03045e] text-white font-bold transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl flex items-center justify-center gap-2 group"
             >
               🎉 Show me places!!
+              <ChevronRight
+                size={20}
+                className="transition-transform duration-300 group-hover:translate-x-1"
+              />
             </button>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );

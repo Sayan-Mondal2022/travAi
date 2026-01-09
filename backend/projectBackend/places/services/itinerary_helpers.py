@@ -112,13 +112,35 @@ def _flatten_grouped_places(
     preferences_list: List[str],
 ) -> List[Dict[str, Any]]:
     """
+    Flattens grouped places structure respecting preference order.
+    
     grouped structure: { "Relaxation": [...], "Adventure": [...], "_others": [...] }
+    OR for no preferences: { "General": [...], "_others": [...] }
+    
     Flattens in pref-order, then _others.
     """
     result: List[Dict[str, Any]] = []
     seen_ids: set[str] = set()
 
-    # Respect preference order
+    # ✅ FIX: Handle "General" category when no preferences provided
+    if not preferences_list or len(preferences_list) == 0:
+        # Use "General" category if it exists
+        for p in grouped.get("General", []):
+            pid = p.get("id")
+            if pid and pid not in seen_ids:
+                seen_ids.add(pid)
+                result.append(p)
+        
+        # Then add _others
+        for p in grouped.get("_others", []):
+            pid = p.get("id")
+            if pid and pid not in seen_ids:
+                seen_ids.add(pid)
+                result.append(p)
+        
+        return result
+
+    # Original logic: Respect preference order
     for pref in preferences_list:
         for p in grouped.get(pref, []):
             pid = p.get("id")
