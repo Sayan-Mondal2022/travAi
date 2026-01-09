@@ -2,7 +2,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState } from 'react';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged, updateProfile } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import {
   signInWithGoogle,
@@ -12,16 +12,14 @@ import {
   getUserData,
 } from '../lib/auth';
 
-const AuthContext = createContext({
-  user: null,
-  loading: true,
-  signInWithGoogle: async () => {},
-  signInWithEmail: async () => {},
-  signUpWithEmail: async () => {},
-  logOut: async () => {},
-  getUserData: async () => {},
-});
+/* --------------------------------------------------
+   Context Creation
+-------------------------------------------------- */
+const AuthContext = createContext(null);
 
+/* --------------------------------------------------
+   Hook
+-------------------------------------------------- */
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
@@ -30,14 +28,19 @@ export const useAuth = () => {
   return context;
 };
 
+/* --------------------------------------------------
+   Provider
+-------------------------------------------------- */
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  /* --------------------------------------------------
+     Firebase Auth Listener
+  -------------------------------------------------- */
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       if (firebaseUser) {
-        // User is signed in
         setUser({
           uid: firebaseUser.uid,
           email: firebaseUser.email,
@@ -46,16 +49,36 @@ export const AuthProvider = ({ children }) => {
           emailVerified: firebaseUser.emailVerified,
         });
       } else {
-        // User is signed out
         setUser(null);
       }
       setLoading(false);
     });
 
-    // Cleanup subscription on unmount
     return () => unsubscribe();
   }, []);
 
+  /* --------------------------------------------------
+     Update Profile (Display Name + Photo)
+  -------------------------------------------------- */
+  const updateUserProfile = async ({ displayName, photoURL }) => {
+    if (!auth.currentUser) return;
+
+    await updateProfile(auth.currentUser, {
+      displayName,
+      photoURL,
+    });
+
+    // Update local state so UI updates instantly
+    setUser((prev) => ({
+      ...prev,
+      displayName,
+      photoURL,
+    }));
+  };
+
+  /* --------------------------------------------------
+     Context Value
+  -------------------------------------------------- */
   const value = {
     user,
     loading,
@@ -64,6 +87,7 @@ export const AuthProvider = ({ children }) => {
     signUpWithEmail,
     logOut,
     getUserData,
+    updateUserProfile,
   };
 
   return (

@@ -1,6 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useAuth } from "../../context/AuthContext";
+
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -52,18 +56,32 @@ export default function RegisterPage() {
     }, 1000);
   };
 
-  const handleGoogleSignIn = () => {
-    setError("");
-    setIsLoading(true);
+const router = useRouter();
+const { signInWithGoogle } = useAuth();
 
-    setTimeout(() => {
+const handleGoogleSignIn = async () => {
+  setError("");
+  setIsLoading(true);
+
+  try {
+    const result = await signInWithGoogle();
+
+    if (result.success) {
       setShowSuccess(true);
+
       setTimeout(() => {
-        setIsLoading(false);
-        setShowSuccess(false);
-      }, 2000);
-    }, 1000);
-  };
+        router.push("/");
+      }, 1500);
+    } else {
+      setError(result.error || "Google sign-up failed");
+      setIsLoading(false);
+    }
+  } catch (err) {
+    setError("Something went wrong. Try again.");
+    setIsLoading(false);
+  }
+};
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#03045e] via-[#0077b6] to-[#00b4d8] flex items-center justify-center p-4 lg:p-8 overflow-auto">
@@ -381,9 +399,12 @@ export default function RegisterPage() {
             <div className="text-center mt-2">
               <p className="text-sm text-[#0077b6]">
                 Already have an account?{" "}
-                <span className="font-semibold text-[#0077b6] hover:text-[#03045e] transition-all duration-300 hover:underline cursor-pointer">
+                <Link
+                  href="/login"
+                  className="font-semibold text-[#0077b6] hover:text-[#03045e] transition-all duration-300 hover:underline"
+                >
                   Sign in here
-                </span>
+                </Link>
               </p>
             </div>
           </div>

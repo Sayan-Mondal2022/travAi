@@ -2,114 +2,155 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useAuth } from '../context/AuthContext.js';
+import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X } from 'lucide-react'; // Available in your package.json
+import { Menu, X } from 'lucide-react';
 
 export default function Navbar() {
   const { user, logOut } = useAuth();
-  const [showCreateTrip, setShowCreateTrip] = useState(false);
+
   const [scrolled, setScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
+  /* ------------------ Scroll Handling ------------------ */
   useEffect(() => {
-    const heroEl = document.querySelector('#hero');
     const handleScroll = () => {
-      const scrollY = window.scrollY;
-      const heroHeight = heroEl?.clientHeight || 500;
-      setShowCreateTrip(scrollY > heroHeight * 0.5);
-      setScrolled(scrollY > 50);
+      setScrolled(window.scrollY > 50);
     };
 
     window.addEventListener('scroll', handleScroll);
     handleScroll();
+
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const navLinkClasses = `text-sm font-semibold transition-colors duration-300 ${
-    scrolled ? 'text-gray-700 hover:text-indigo-600' : 'text-white hover:text-indigo-200'
-  }`;
+  /* ------------------ Greeting ------------------ */
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good Morning';
+    if (hour < 18) return 'Good Afternoon';
+    return 'Good Evening';
+  };
+
+  /* ------------------ Nav Link Style ------------------ */
+  const navLinkClasses = `
+    relative text-sm font-semibold px-4 py-2 rounded-full
+    transition-all duration-300
+    ${
+      scrolled
+        ? 'text-gray-700 hover:text-indigo-600 hover:bg-indigo-50'
+        : 'text-white hover:text-white hover:bg-white/20'
+    }
+  `;
 
   return (
     <motion.nav
       initial={{ y: -100 }}
       animate={{ y: 0 }}
       className={`fixed top-0 w-full z-50 transition-all duration-500 ${
-        scrolled ? 'bg-white/90 backdrop-blur-md py-3 shadow-sm' : 'bg-transparent py-6'
+        scrolled
+          ? 'bg-white/90 backdrop-blur-md py-3 shadow-sm'
+          : 'bg-transparent py-6'
       }`}
     >
       <div className="max-w-7xl mx-auto px-6 flex justify-between items-center relative">
-        
-        {/* Left: Logo */}
-        <Link href="/" className={`text-2xl font-black tracking-tighter transition-colors ${
-          scrolled ? 'text-indigo-600' : 'text-white'
-        }`}>
-          TravAi
+
+        {/* ------------------ Logo ------------------ */}
+        <Link
+          href="/"
+          className={`text-2xl font-black tracking-tighter transition-colors ${
+            scrolled ? 'text-indigo-600' : 'text-white'
+          }`}
+        >
+          TravAI
         </Link>
 
-        {/* Center: Navigation Links (Hidden on Mobile) */}
-        <div className="hidden md:flex absolute left-1/2 -translate-x-1/2 items-center space-x-10">
-          <AnimatePresence>
-            {showCreateTrip && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-              >
-                <Link href="/" className={navLinkClasses}>Home</Link>
-              </motion.div>
-            )}
-          </AnimatePresence>
+        {/* ------------------ CENTER LINKS (FIXED) ------------------ */}
+        <div className="hidden md:flex absolute left-1/2 -translate-x-1/2 items-center space-x-4">
+          <Link href="/" className={navLinkClasses}>Home</Link>
           <Link href="/about" className={navLinkClasses}>About Us</Link>
         </div>
 
-        {/* Right: Actions & Profile */}
+        {/* ------------------ RIGHT SECTION ------------------ */}
         <div className="flex items-center space-x-4">
-          {/* Create Trip Button */}
-          <AnimatePresence>
-            {showCreateTrip && (
-              <motion.div
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.8, opacity: 0 }}
-              >
-                <Link
-                  href="/trip"
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-full text-sm font-bold shadow-lg transition-transform active:scale-95 hidden sm:block"
-                >
-                  Create Trip
-                </Link>
-              </motion.div>
-            )}
-          </AnimatePresence>
 
-          {/* User Auth Section */}
+          {/* ------------------ AUTH SECTION ------------------ */}
           {!user ? (
-            <Link href="/login" className={navLinkClasses}>Login</Link>
+            <Link href="/login" className={navLinkClasses}>
+              Login
+            </Link>
           ) : (
             <div className="relative">
-              <img
-                src={user.photoURL || "/default-avatar.png"}
-                className="w-9 h-9 rounded-full cursor-pointer border-2 border-indigo-400 hover:scale-105 transition-transform"
+
+              {/* Profile Trigger */}
+              <div
                 onClick={() => setMenuOpen(!menuOpen)}
-              />
-              {menuOpen && (
-                <motion.div 
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="absolute right-0 mt-3 w-48 bg-white rounded-xl shadow-2xl p-2 border border-gray-100"
-                >
-                  <button onClick={logOut} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 font-medium rounded-lg">
-                    Logout
-                  </button>
-                </motion.div>
-              )}
+                className="flex items-center gap-3 cursor-pointer group"
+              >
+                <div className="hidden sm:flex flex-col text-right leading-tight">
+                  <span
+                    className={`text-xs font-medium ${
+                      scrolled ? 'text-gray-500' : 'text-indigo-100'
+                    }`}
+                  >
+                    {getGreeting()},
+                  </span>
+                  <span
+                    className={`text-sm font-semibold ${
+                      scrolled ? 'text-gray-900' : 'text-white'
+                    }`}
+                  >
+                    {user.displayName || 'Traveler'}
+                  </span>
+                </div>
+
+                <img
+                  src={user.photoURL || '/default-avatar.png'}
+                  alt="Profile"
+                  className="w-9 h-9 rounded-full border-2 border-indigo-400 group-hover:scale-105 transition-transform"
+                />
+              </div>
+
+              {/* Dropdown */}
+              <AnimatePresence>
+                {menuOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 10 }}
+                    className="absolute right-0 mt-4 w-56 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden"
+                  >
+                    <Link
+                      href="/profile"
+                      className="block px-5 py-3 text-sm font-medium text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition"
+                    >
+                      👤 Edit Profile
+                    </Link>
+
+                    <Link
+                      href="/trips"
+                      className="block px-5 py-3 text-sm font-medium text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition"
+                    >
+                      🧭 Past Trips
+                    </Link>
+
+                    <div className="border-t border-gray-100" />
+
+                    <button
+                      onClick={logOut}
+                      className="w-full text-left px-5 py-3 text-sm font-semibold text-red-600 hover:bg-red-50 transition"
+                    >
+                      🚪 Logout
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           )}
 
-          {/* Mobile Menu Toggle */}
-          <button 
+          {/* ------------------ MOBILE MENU TOGGLE ------------------ */}
+          <button
             className="md:hidden p-2"
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
           >
@@ -122,7 +163,7 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Mobile Menu Overlay */}
+      {/* ------------------ MOBILE MENU ------------------ */}
       <AnimatePresence>
         {isMobileMenuOpen && (
           <motion.div
@@ -132,9 +173,15 @@ export default function Navbar() {
             className="md:hidden bg-white border-t border-gray-100 overflow-hidden"
           >
             <div className="flex flex-col p-6 space-y-4">
-              <Link href="/" onClick={() => setIsMobileMenuOpen(false)} className="text-gray-800 font-medium">Home</Link>
-              <Link href="/about" onClick={() => setIsMobileMenuOpen(false)} className="text-gray-800 font-medium">About Us</Link>
-              <Link href="/trip" onClick={() => setIsMobileMenuOpen(false)} className="bg-indigo-600 text-white p-3 rounded-xl text-center font-bold">Create Trip</Link>
+              <Link href="/" onClick={() => setIsMobileMenuOpen(false)}>Home</Link>
+              <Link href="/about" onClick={() => setIsMobileMenuOpen(false)}>About Us</Link>
+              <Link
+                href="/trip"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="bg-indigo-600 text-white p-3 rounded-xl text-center font-bold"
+              >
+                Create Trip
+              </Link>
             </div>
           </motion.div>
         )}

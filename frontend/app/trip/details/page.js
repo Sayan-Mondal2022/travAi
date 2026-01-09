@@ -1,7 +1,6 @@
-// app/trip/details/page.js
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Calendar,
@@ -9,348 +8,431 @@ import {
   ArrowLeft,
   Plane,
   PlaneLanding,
-  Sparkles,
+  Check,
+  ChevronRight,
 } from "lucide-react";
 
 const TRAVEL_TYPES = [
-  { id: "solo", label: "Solo", emoji: "🧍", description: "Traveling alone" },
-  {
-    id: "duo",
-    label: "Duo",
-    emoji: "🧑‍🤝‍🧑",
-    description: "Two people traveling together",
-  },
-  {
-    id: "couple",
-    label: "Couple",
-    emoji: "👩‍❤️‍👨",
-    description: "Romantic getaway",
-  },
-  {
-    id: "family",
-    label: "Family",
-    emoji: "👨‍👩‍👧‍👦",
-    description: "With family members",
-  },
-  {
-    id: "friends",
-    label: "Friends",
-    emoji: "👯‍♂️",
-    description: "Group of friends",
-  },
-  {
-    id: "business",
-    label: "Business",
-    emoji: "💼",
-    description: "Business trip",
-  },
+  { id: "solo", label: "Solo", emoji: "🧍" },
+  { id: "duo", label: "Duo", emoji: "🧑‍🤝‍🧑" },
+  { id: "couple", label: "Couple", emoji: "👩‍❤️‍👨" },
+  { id: "family", label: "Family", emoji: "👨‍👩‍👧‍👦" },
+  { id: "friends", label: "Friends", emoji: "👯‍♂️" },
+  { id: "business", label: "Business", emoji: "💼" },
 ];
+
+const toSafeDate = (date) =>
+  new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+    .toISOString()
+    .split("T")[0];
+
+const formatDate = (date) => {
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+};
 
 export default function DetailsStep() {
   const router = useRouter();
+  
   const [formData, setFormData] = useState({
+    travel_type: "",
+    trip_type: "",
     start_date: "",
     end_date: "",
-    travel_type: "",
   });
+
   const [selectedDates, setSelectedDates] = useState({
     start: null,
     end: null,
   });
-  const [currentMonth, setCurrentMonth] = useState(new Date());
 
-  useEffect(() => {
-    const savedData = localStorage.getItem("tripData");
-    if (savedData) {
-      const parsedData = JSON.parse(savedData);
-      setFormData((prev) => ({ ...prev, ...parsedData }));
-      if (parsedData.start_date) {
-        setSelectedDates((prev) => ({
-          ...prev,
-          start: new Date(parsedData.start_date),
-        }));
-      }
-      if (parsedData.end_date) {
-        setSelectedDates((prev) => ({
-          ...prev,
-          end: new Date(parsedData.end_date),
-        }));
-      }
-    }
-  }, []);
+  const [showCalendar, setShowCalendar] = useState(false);
 
-  const generateCalendar = () => {
-    const year = currentMonth.getFullYear();
-    const month = currentMonth.getMonth();
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const days = [];
+  /* -------- Calendar Logic -------- */
+  const today = new Date();
+  const days = Array.from({ length: 35 }, (_, i) => {
+    const d = new Date();
+    d.setDate(today.getDate() + i);
+    return d;
+  });
 
-    const firstDayOfWeek = firstDay.getDay();
-    for (let i = firstDayOfWeek - 1; i >= 0; i--) {
-      const date = new Date(year, month, -i);
-      days.push({
-        date,
-        isCurrentMonth: false,
-        isPast: date < new Date().setHours(0, 0, 0, 0),
-      });
-    }
+  const handleDateSelect = (date) => {
+    if (!formData.trip_type) return;
 
-    const currentDate = new Date(firstDay);
-    while (currentDate <= lastDay) {
-      const isPast = currentDate < new Date().setHours(0, 0, 0, 0);
-      days.push({
-        date: new Date(currentDate),
-        isCurrentMonth: true,
-        isPast,
-      });
-      currentDate.setDate(currentDate.getDate() + 1);
-    }
-
-    const totalCells = 42;
-    const nextMonth = new Date(year, month + 1, 1);
-    while (days.length < totalCells) {
-      const date = new Date(nextMonth);
-      date.setDate(
-        nextMonth.getDate() +
-          (days.length - (firstDayOfWeek + lastDay.getDate()))
-      );
-      days.push({
-        date,
-        isCurrentMonth: false,
-        isPast: false,
-      });
-    }
-
-    return days;
-  };
-
-  const handleDateSelect = (day) => {
-    if (day.isPast) return;
-
-    const newDate = day.date;
-
-    if (!selectedDates.start || (selectedDates.start && selectedDates.end)) {
-      setSelectedDates({ start: newDate, end: null });
-      setFormData((prev) => ({
-        ...prev,
-        start_date: newDate.toISOString().split("T")[0],
+    if (formData.trip_type === "oneway") {
+      setSelectedDates({ start: date, end: null });
+      setFormData((p) => ({
+        ...p,
+        start_date: toSafeDate(date),
         end_date: "",
       }));
-    } else if (selectedDates.start && !selectedDates.end) {
-      if (newDate > selectedDates.start) {
-        setSelectedDates((prev) => ({ ...prev, end: newDate }));
-        setFormData((prev) => ({
-          ...prev,
-          end_date: newDate.toISOString().split("T")[0],
-        }));
-      } else {
-        setSelectedDates({ start: newDate, end: selectedDates.start });
-        setFormData((prev) => ({
-          ...prev,
-          start_date: newDate.toISOString().split("T")[0],
-          end_date: selectedDates.start.toISOString().split("T")[0],
-        }));
-      }
-    }
-  };
-
-  const getDurationDays = () => {
-    if (selectedDates.start && selectedDates.end) {
-      const diff = Math.abs(selectedDates.end - selectedDates.start);
-      return Math.ceil(diff / (1000 * 60 * 60 * 24)) + 1;
-    }
-    return 0;
-  };
-
-  const isDateInRange = (date) => {
-    if (!selectedDates.start || !selectedDates.end) return false;
-    return date >= selectedDates.start && date <= selectedDates.end;
-  };
-
-  const isStartDate = (date) =>
-    selectedDates.start &&
-    date.toDateString() === selectedDates.start.toDateString();
-
-  const isEndDate = (date) =>
-    selectedDates.end &&
-    date.toDateString() === selectedDates.end.toDateString();
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-
-    if (!formData.start_date || !formData.end_date || !formData.travel_type) {
-      alert("Please select both travel dates and travel type before continuing.");
       return;
     }
 
-    const allData = {
-      ...JSON.parse(localStorage.getItem("tripData") || "{}"),
-      ...formData,
-      duration_days: getDurationDays(),
-    };
-    localStorage.setItem("tripData", JSON.stringify(allData));
+    if (!selectedDates.start || selectedDates.end) {
+      setSelectedDates({ start: date, end: null });
+      setFormData((p) => ({
+        ...p,
+        start_date: toSafeDate(date),
+        end_date: "",
+      }));
+    } else {
+      const start = date < selectedDates.start ? date : selectedDates.start;
+      const end = date > selectedDates.start ? date : selectedDates.start;
 
+      setSelectedDates({ start, end });
+      setFormData((p) => ({
+        ...p,
+        start_date: toSafeDate(start),
+        end_date: toSafeDate(end),
+      }));
+    }
+  };
+
+  const duration =
+    selectedDates.start && selectedDates.end
+      ? Math.ceil(
+          (selectedDates.end - selectedDates.start) / (1000 * 60 * 60 * 24)
+        ) + 1
+      : selectedDates.start
+      ? 1
+      : 0;
+
+  const handleContinueToCalendar = () => {
+    if (formData.travel_type && formData.trip_type) {
+      setShowCalendar(true);
+    }
+  };
+
+  const handleEditDetails = () => {
+    setShowCalendar(false);
+  };
+
+  /* -------- Submit -------- */
+  const handleSubmit = () => {
+    const prev = JSON.parse(localStorage.getItem("tripData") || "{}");
+    localStorage.setItem(
+      "tripData",
+      JSON.stringify({ ...prev, ...formData })
+    );
     router.push("/trip/group-details");
   };
 
-  const handleTravelTypeClick = (typeId) => {
-    setFormData((prev) => ({ ...prev, travel_type: typeId }));
-  };
-
-  const calendarDays = generateCalendar();
-  const duration = getDurationDays();
+  const isStepOneComplete = formData.travel_type && formData.trip_type;
+  const canSubmit =
+    formData.start_date &&
+    (formData.trip_type === "oneway" || formData.end_date);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center p-2 overflow-hidden">
-      <div className="bg-white/90 backdrop-blur-xl rounded-2xl shadow-xl p-4 w-full max-w-5xl border border-white/30">
-        {/* Header */}
-        <div className="text-center mb-4 relative">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center p-4">
+      <div className="bg-white/95 backdrop-blur-2xl rounded-3xl shadow-2xl p-8 w-full max-w-4xl border border-white/20">
+        {/* HEADER */}
+        <div className="relative text-center mb-8">
           <button
-            type="button"
             onClick={() => router.back()}
-            className="absolute left-0 top-0 p-2 rounded-2xl text-[#0077b6] hover:bg-blue-50 transition-all"
+            className="absolute left-0 top-0 p-2 rounded-xl hover:bg-blue-50 transition-all duration-300 hover:scale-110"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <ArrowLeft className="text-[#03045e]" />
           </button>
-
-          <div className="w-14 h-14 rounded-2xl mx-auto mb-2 flex items-center justify-center bg-gradient-to-br from-[#00b4d8] to-[#0077b6] shadow-md">
-            <Calendar className="w-7 h-7 text-white" />
+          <div className="space-y-2">
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-[#03045e] to-[#0077b6] bg-clip-text text-transparent">
+              Plan Your Journey
+            </h1>
+            <p className="text-sm text-[#0077b6]">
+              {!showCalendar
+                ? "Tell us about your travel preferences"
+                : "Choose your travel dates"}
+            </p>
           </div>
-
-          <h1 className="text-2xl font-bold text-[#03045e]">Plan Your Journey</h1>
-          <p className="text-sm text-[#0077b6]">Choose your dates and travel companions</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            {/* Calendar Panel */}
-            <div className="rounded-2xl p-3 bg-white border border-[#90e0ef] shadow-md">
-              <label className="flex items-center gap-2 text-base font-bold text-[#03045e] mb-3">
-                <Calendar className="w-4 h-4 text-[#00b4d8]" />
-                Travel Dates
-              </label>
+        {/* PROGRESS INDICATOR */}
+        <div className="flex items-center justify-center gap-2 mb-8">
+          <div
+            className={`h-2 rounded-full transition-all duration-500 ${
+              isStepOneComplete ? "w-20 bg-[#00b4d8]" : "w-12 bg-gray-300"
+            }`}
+          />
+          <div
+            className={`h-2 rounded-full transition-all duration-500 ${
+              showCalendar ? "w-20 bg-[#00b4d8]" : "w-12 bg-gray-300"
+            }`}
+          />
+          <div
+            className={`h-2 rounded-full transition-all duration-500 ${
+              canSubmit ? "w-20 bg-[#00b4d8]" : "w-12 bg-gray-300"
+            }`}
+          />
+        </div>
 
-              {/* Selected Dates */}
-              <div className="space-y-2 mb-3">
-                <div className="p-2 rounded-2xl border border-[#00b4d8]/40 bg-[#caf0f8]/30">
-                  <div className="text-xs font-semibold text-[#0077b6]">
-                    Departure
-                  </div>
-                  <div className="text-sm font-bold">
-                    {selectedDates.start
-                      ? selectedDates.start.toLocaleDateString()
-                      : "Select date"}
-                  </div>
-                </div>
-                <div className="p-2 rounded-2xl border border-[#0077b6]/40 bg-[#90e0ef]/30">
-                  <div className="text-xs font-semibold text-[#0077b6]">Return</div>
-                  <div className="text-sm font-bold">
-                    {selectedDates.end
-                      ? selectedDates.end.toLocaleDateString()
-                      : "Select date"}
-                  </div>
-                </div>
-              </div>
+        {/* STEP 1: TRAVEL & TRIP TYPE */}
+        <div
+          className={`transition-all duration-700 ease-in-out ${
+            showCalendar
+              ? "opacity-0 h-0 overflow-hidden scale-95"
+              : "opacity-100 scale-100"
+          }`}
+        >
+          {/* TRAVEL TYPE */}
+          <div className="mb-8">
+            <label className="font-bold flex items-center gap-2 mb-4 text-[#03045e]">
+              <Users className="text-[#00b4d8]" size={20} /> Who's Traveling?
+            </label>
 
-              {/* Duration */}
-              {duration > 0 && (
-                <div className="text-center mb-3 p-2 h-10 rounded-2xl bg-gradient-to-r from-[#00b4d8] to-[#03045e] text-white text-sm font-bold shadow-md">
-                  {duration} Days Trip
-                </div>
-              )}
-
-              {/* Calendar */}
-              <div className="rounded-2xl bg-white p-2 shadow-inner">
-                <div className="grid grid-cols-7 gap-1 mb-1">
-                  {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
-                    <div key={d} className="text-center text-[14px] font-bold text-[#0077b6]">
-                      {d}
+            <div className="grid grid-cols-3 gap-3">
+              {TRAVEL_TYPES.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() =>
+                    setFormData((p) => ({ ...p, travel_type: t.id }))
+                  }
+                  className={`group relative p-4 rounded-2xl border-2 transition-all duration-300 ${
+                    formData.travel_type === t.id
+                      ? "bg-gradient-to-br from-[#caf0f8] to-[#90e0ef] border-[#0077b6] shadow-lg scale-105"
+                      : "border-gray-200 hover:border-[#00b4d8] hover:shadow-md hover:scale-102"
+                  }`}
+                >
+                  {formData.travel_type === t.id && (
+                    <div className="absolute -top-2 -right-2 bg-[#0077b6] rounded-full p-1 shadow-lg animate-bounce">
+                      <Check size={14} className="text-white" />
                     </div>
-                  ))}
-                </div>
-
-                <div className="grid grid-cols-7 gap-1">
-                  {calendarDays.map((day, i) => {
-                    const isSel =
-                      isStartDate(day.date) || isEndDate(day.date);
-                    const inRange = isDateInRange(day.date);
-
-                    return (
-                      <button
-                        key={i}
-                        type="button"
-                        disabled={day.isPast}
-                        onClick={() => handleDateSelect(day)}
-                        className={`h-10 text-[11px] rounded-2xl transition hover:cursor-pointer ${
-                          day.isPast
-                            ? "text-gray-300 bg-gray-50 cursor-not-allowed"
-                            : isSel
-                            ? "bg-[#0077b6] text-white"
-                            : inRange
-                            ? "bg-[#caf0f8] text-[#03045e]"
-                            : "bg-white text-[#03045e] hover:bg-[#90e0ef]"
-                        } ${!day.isCurrentMonth && "opacity-40"}`}
-                      >
-                        {day.date.getDate()}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-
-            {/* Travel Types Panel */}
-            <div className="rounded-2xl p-3 bg-white border border-[#90e0ef] shadow-md">
-              <label className="flex items-center gap-2 text-base font-bold text-[#03045e] mb-3">
-                <Users className="w-4 h-4 text-[#00b4d8]" />
-                Travel Companions
-              </label>
-
-              <div className="grid grid-cols-2 gap-2">
-                {TRAVEL_TYPES.map((t) => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => handleTravelTypeClick(t.id)}
-                    className={`p-2 rounded-2xl border text-center transition hover:cursor-pointer ${
-                      formData.travel_type === t.id
-                        ? "border-[#0077b6] bg-[#caf0f8]/40 shadow-md"
-                        : "border-[#90e0ef] bg-white hover:bg-[#eefaff]"
-                    }`}
-                  >
-                    <div className="text-2xl mb-1">{t.emoji}</div>
-                    <div className="text-sm font-bold text-[#03045e]">
-                      {t.label}
-                    </div>
-                    <div className="text-[10px] text-[#0077b6]">{t.description}</div>
-                  </button>
-                ))}
-              </div>
+                  )}
+                  <div className="text-3xl mb-2 transition-transform duration-300 group-hover:scale-110">
+                    {t.emoji}
+                  </div>
+                  <div className="text-sm font-semibold text-[#03045e]">
+                    {t.label}
+                  </div>
+                </button>
+              ))}
             </div>
           </div>
 
-          {/* Submit Button */}
-          <button
-            type="submit"
-            className="w-full py-3 rounded-2xl text-white bg-gradient-to-r from-[#00b4d8] to-[#03045e] text-base font-bold shadow-md hover:opacity-90 transition-all hover:cursor-pointer"
+          {/* TRIP TYPE */}
+          <div
+            className={`transition-all duration-500 ${
+              formData.travel_type
+                ? "opacity-100 translate-y-0"
+                : "opacity-0 translate-y-4 pointer-events-none"
+            }`}
           >
-            Continue to Group Details
-          </button>
-        </form>
+            <label className="font-bold flex items-center gap-2 mb-4 text-[#03045e]">
+              <Plane className="text-[#00b4d8]" size={20} /> Trip Type
+            </label>
 
-        {/* FROM → TO Summary */}
-        <div className="mt-3 p-3 rounded-2xl bg-[#caf0f8]/40 text-center text-sm">
-          <span className="font-semibold text-[#0077b6]">From</span>{" "}
-          <span className="font-bold text-[#03045e]">
-            {JSON.parse(localStorage.getItem("tripData") || "{}").from_location ||
-              "..."}
-          </span>{" "}
-          <span className="font-semibold text-[#0077b6]">to</span>{" "}
-          <span className="font-bold text-[#03045e]">
-            {JSON.parse(localStorage.getItem("tripData") || "{}").to_location ||
-              "..."}
-          </span>
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              <button
+                onClick={() =>
+                  setFormData((p) => ({
+                    ...p,
+                    trip_type: "oneway",
+                    end_date: "",
+                  }))
+                }
+                className={`group relative p-6 rounded-2xl border-2 transition-all duration-300 ${
+                  formData.trip_type === "oneway"
+                    ? "bg-gradient-to-br from-[#caf0f8] to-[#90e0ef] border-[#0077b6] shadow-lg scale-105"
+                    : "border-gray-200 hover:border-[#00b4d8] hover:shadow-md hover:scale-102"
+                }`}
+              >
+                {formData.trip_type === "oneway" && (
+                  <div className="absolute -top-2 -right-2 bg-[#0077b6] rounded-full p-1 shadow-lg animate-bounce">
+                    <Check size={14} className="text-white" />
+                  </div>
+                )}
+                <Plane
+                  className="mx-auto mb-2 transition-transform duration-300 group-hover:translate-x-2"
+                  size={32}
+                />
+                <div className="font-semibold text-[#03045e]">One Way</div>
+              </button>
+
+              <button
+                onClick={() =>
+                  setFormData((p) => ({ ...p, trip_type: "round" }))
+                }
+                className={`group relative p-6 rounded-2xl border-2 transition-all duration-300 ${
+                  formData.trip_type === "round"
+                    ? "bg-gradient-to-br from-[#caf0f8] to-[#90e0ef] border-[#0077b6] shadow-lg scale-105"
+                    : "border-gray-200 hover:border-[#00b4d8] hover:shadow-md hover:scale-102"
+                }`}
+              >
+                {formData.trip_type === "round" && (
+                  <div className="absolute -top-2 -right-2 bg-[#0077b6] rounded-full p-1 shadow-lg animate-bounce">
+                    <Check size={14} className="text-white" />
+                  </div>
+                )}
+                <PlaneLanding
+                  className="mx-auto mb-2 transition-transform duration-300 group-hover:translate-x-2"
+                  size={32}
+                />
+                <div className="font-semibold text-[#03045e]">Round Trip</div>
+              </button>
+            </div>
+
+            {isStepOneComplete && (
+              <button
+                onClick={handleContinueToCalendar}
+                className="w-full py-4 rounded-2xl bg-gradient-to-r from-[#00b4d8] to-[#03045e] text-white font-bold transition-all duration-300 hover:scale-[1.02] hover:shadow-xl flex items-center justify-center gap-2 group"
+              >
+                Continue to Dates
+                <ChevronRight
+                  size={20}
+                  className="transition-transform duration-300 group-hover:translate-x-1"
+                />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* STEP 2: CALENDAR */}
+        <div
+          className={`transition-all duration-700 ease-in-out ${
+            showCalendar
+              ? "opacity-100 scale-100"
+              : "opacity-0 h-0 overflow-hidden scale-95"
+          }`}
+        >
+          {/* SELECTION SUMMARY */}
+          {showCalendar && (
+            <div className="mb-6 p-5 rounded-2xl bg-gradient-to-r from-[#caf0f8]/60 to-[#90e0ef]/40 border-2 border-[#00b4d8]/30 backdrop-blur-sm">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  <div className="text-2xl">
+                    {
+                      TRAVEL_TYPES.find((t) => t.id === formData.travel_type)
+                        ?.emoji
+                    }
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-[#0077b6]">
+                      {formData.trip_type === "round"
+                        ? "Round Trip"
+                        : "One Way"}{" "}
+                      •{" "}
+                      {
+                        TRAVEL_TYPES.find((t) => t.id === formData.travel_type)
+                          ?.label
+                      }
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={handleEditDetails}
+                  className="text-xs text-[#0077b6] hover:text-[#03045e] font-semibold transition-colors duration-300"
+                >
+                  Edit
+                </button>
+              </div>
+
+              <div className="flex items-center gap-4">
+                {selectedDates.start ? (
+                  <>
+                    <div className="flex-1 p-3 rounded-xl bg-white/70 backdrop-blur-sm">
+                      <p className="text-xs text-[#0077b6] mb-1">Start Date</p>
+                      <p className="text-lg font-bold text-[#03045e]">
+                        {formatDate(selectedDates.start)}
+                      </p>
+                    </div>
+                    {formData.trip_type === "round" && (
+                      <>
+                        <div className="text-[#00b4d8]">→</div>
+                        <div className="flex-1 p-3 rounded-xl bg-white/70 backdrop-blur-sm">
+                          <p className="text-xs text-[#0077b6] mb-1">
+                            End Date
+                          </p>
+                          <p className="text-lg font-bold text-[#03045e]">
+                            {selectedDates.end
+                              ? formatDate(selectedDates.end)
+                              : "Select date"}
+                          </p>
+                        </div>
+                      </>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-sm text-[#0077b6]">
+                    Select your travel dates below
+                  </p>
+                )}
+              </div>
+
+              {duration > 0 && formData.trip_type === "round" && (
+                <div className="mt-3 text-center">
+                  <span className="inline-block px-4 py-2 rounded-full bg-white/70 text-sm font-semibold text-[#03045e]">
+                    {duration} {duration === 1 ? "day" : "days"}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* CALENDAR */}
+          <div>
+            <label className="font-bold flex items-center gap-2 mb-4 text-[#03045e]">
+              <Calendar className="text-[#00b4d8]" size={20} /> Select Dates
+            </label>
+
+            <div className="grid grid-cols-7 gap-2 mb-2">
+              {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((day) => (
+                <div
+                  key={day}
+                  className="text-center text-xs font-semibold text-[#0077b6] py-2"
+                >
+                  {day}
+                </div>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-7 gap-2">
+              {days.map((d, i) => {
+                const isStart =
+                  selectedDates.start &&
+                  d.toDateString() === selectedDates.start.toDateString();
+                const isEnd =
+                  selectedDates.end &&
+                  d.toDateString() === selectedDates.end.toDateString();
+                const inRange =
+                  selectedDates.start &&
+                  selectedDates.end &&
+                  d > selectedDates.start &&
+                  d < selectedDates.end;
+
+                return (
+                  <button
+                    key={i}
+                    onClick={() => handleDateSelect(d)}
+                    className={`relative h-12 rounded-xl font-semibold transition-all duration-300 ${
+                      isStart || isEnd
+                        ? "bg-gradient-to-br from-[#0077b6] to-[#03045e] text-white scale-110 shadow-lg z-10"
+                        : inRange
+                        ? "bg-[#caf0f8] text-[#03045e] scale-105"
+                        : "hover:bg-[#90e0ef] hover:scale-105 text-[#03045e]"
+                    }`}
+                  >
+                    {d.getDate()}
+                    {(isStart || isEnd) && (
+                      <div className="absolute inset-0 rounded-xl bg-white/20 animate-pulse" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* SUBMIT */}
+          {canSubmit && (
+            <button
+              onClick={handleSubmit}
+              className="mt-8 w-full py-4 rounded-2xl bg-gradient-to-r from-[#00b4d8] to-[#03045e] text-white font-bold transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl flex items-center justify-center gap-2 group animate-fade-in"
+            >
+              Continue to Group Details
+              <ChevronRight
+                size={20}
+                className="transition-transform duration-300 group-hover:translate-x-1"
+              />
+            </button>
+          )}
         </div>
       </div>
     </div>
