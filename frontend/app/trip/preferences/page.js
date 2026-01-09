@@ -571,7 +571,7 @@ export default function PreferencesStep() {
               type="submit"
               className="flex-1 bg-blue-600 text-white py-3 px-6 rounded-2xl cursor-pointer hover:bg-blue-700 hover:scale-105 active:scale-95 transition-all duration-200 font-medium"
             >
-              🎉 Create My Trip!
+              🎉 Show me places!!
             </button>
           </div>
         </form>

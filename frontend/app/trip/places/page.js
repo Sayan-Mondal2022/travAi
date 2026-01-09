@@ -85,7 +85,7 @@ export default function PlacesPage() {
         }`;
 
         const data = await apiGet(endpoint);
-        console.log("API Response:", data);
+        // console.log("API Response:", data);
         setPlacesData(data);
       } catch (err) {
         console.error("Fetch error:", err);
@@ -145,7 +145,7 @@ export default function PlacesPage() {
       }
     });
 
-    console.log(`Flattened ${out.length} places`);
+    // console.log(`Flattened ${out.length} places`);
     return out;
   };
 

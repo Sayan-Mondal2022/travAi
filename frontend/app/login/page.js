@@ -147,7 +147,7 @@ export default function LoginPage() {
       )}
 
       {/* MAIN LOGIN CONTAINER */}
-      <div className="flex w-full max-w-6xl h-auto bg-gradient-to-br from-[#e6f7ff] to-[#f0f9ff] rounded-[30px] overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.3)] border border-white/60 relative z-10 animate-[fadeIn_420ms_cubic-bezier(0.2,0.9,0.2,1)_forwards]">
+      <div className="flex w-full max-w-6xl h-75vh bg-gradient-to-br from-[#e6f7ff] to-[#f0f9ff] rounded-[30px] overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.3)] border border-white/60 relative z-10 animate-[fadeIn_420ms_cubic-bezier(0.2,0.9,0.2,1)_forwards]">
         
         {/* LEFT PANEL */}
         <div className="flex-1 p-6 px-8 flex flex-col justify-center bg-gradient-to-b from-white/95 to-[#f8fcff] backdrop-blur-sm border-r border-white/50 relative overflow-y-auto scrollbar-hide animate-[slideUp_700ms_cubic-bezier(0.2,0.9,0.2,1)_forwards]">
