@@ -12,11 +12,11 @@ With its AI Travel Assistant, TravAI offers natural language trip planning, real
 
 ## 🧠 Tech Stack
 
-- **Frontend:** Next.js (*Web*), React Native (*Mobile*), Tailwind CSS  
+- **Frontend:** Next.js (*Web*), Tailwind CSS  
 - **Backend:** Django (*Python*)  
-- **Databases:** MySQL (*User Data*), MongoDB (*Trip Data*), Redis (*Caching & Token Management*)  
-- **APIs & AI Services:** Google Places API, Google Weather API, Google Gemini API, Hugging Face API, Google Dialogflow  
-- **Deployment & DevOps:** Docker, Kubernetes (*Cloud Deployment*)  
+- **Databases:** MySQL (*User Data*), MongoDB (*Trip Data*)
+- **APIs & AI Services:** Google Places API, Google Weather API, Google Gemini API
+- **Deployment & DevOps:** Docker, Kubernetes (*Cloud Deployment*)  (*Only when deploying the project*)
 - **Version Control:** Git & GitHub
 
 
@@ -26,11 +26,10 @@ Before running this project, please make sure the required tools and technologie
 
 ## 🌍 Key Features
 - 🧠 **AI-Powered Travel Assistant** – Generates personalized itineraries using natural language input.  
-- 🗺️ **Dynamic Itinerary Generation** – Adjusts trip details based on user preferences and time.  
-- 💬 **Conversational Interface** – Built using Dialogflow for human-like chatbot interactions.  
+- 🗺️ **Intelligent Itinerary Generation** – Generates the itinerary, based on the *User Preference*, *Real-time weather data*, *Budget*.  
 - 🌦️ **Real-Time Updates** – Fetches weather, routes, and local recommendations dynamically.  
 - 💾 **Hybrid Database Design** – MySQL for user details, MongoDB for trip data, Redis for caching.  
-- 🚀 **Cross-Platform Support** – Works seamlessly on both web and mobile.  
+- 🚀 **Cross-Platform Support** – Works seamlessly on both web and mobile. (*Future Scope*) 
 
 
 ## 🛠️ Installation & Setup
